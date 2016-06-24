@@ -1,0 +1,36 @@
+package com.connectik.cloverlead.social;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.social.security.SocialUserDetails;
+import org.springframework.social.security.SocialUserDetailsService;
+import org.springframework.stereotype.Service;
+
+import com.connectik.cloverlead.dao.UserRepository;
+import com.connectik.cloverlead.model.AuditRecord;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.service.AuditService;
+import com.connectik.cloverlead.service.UserDetailsServiceImpl;
+
+@Service
+public class SocialUserDetailsServiceImpl implements SocialUserDetailsService {
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private AuditService auditService;
+
+	@Override
+	public SocialUserDetails loadUserByUserId(String userId) throws UsernameNotFoundException {
+		User user = userRepository.findOneByUsername(userId);
+
+		if (user == null) {
+			throw new UsernameNotFoundException(userId + " not found!");
+		}
+
+//		auditService.auditRequest(AuditRecord.RequestType.USER_SUCCESSFUL_LOGIN);
+		return new UserDetailsServiceImpl.Account(user);
+	}
+
+}

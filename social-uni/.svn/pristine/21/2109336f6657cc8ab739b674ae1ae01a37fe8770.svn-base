@@ -1,0 +1,134 @@
+package com.connectik.cloverlead.dto;
+
+import com.connectik.cloverlead.model.Opportunity;
+import com.connectik.cloverlead.validation.ValidationGroups;
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
+import java.util.HashSet;
+import java.util.Set;
+
+public class OpportunityInput {
+
+    @NotNull(groups = ValidationGroups.Opportunity.Update.class)
+    @Null(groups = ValidationGroups.Opportunity.Create.class)
+    private Long id;
+
+    private String title;
+
+    private Opportunity.Category category;
+    
+    private Opportunity.Type type;
+
+    private String description;
+
+    private Set<String> keywords = new HashSet<>();
+
+    private Set<String> specialties = new HashSet<>();
+
+    private String startDate;
+
+    private String endDate;
+
+    private String estimatedValueCurrency;
+
+    private Integer estimatedValue;
+
+    private AddressDTO address;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public Opportunity.Type getType() {
+        return type;
+    }
+
+    public void setType(Opportunity.Type type) {
+        this.type = type;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Set<String> getKeywords() {
+        return keywords;
+    }
+
+    public void setKeywords(Set<String> keywords) {
+        this.keywords = keywords;
+    }
+
+    public Set<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(Set<String> specialties) {
+        this.specialties = specialties;
+    }
+
+    public String getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(String startDate) {
+        this.startDate = startDate;
+    }
+
+    public String getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(String endDate) {
+        this.endDate = endDate;
+    }
+
+    public String getEstimatedValueCurrency() {
+        return estimatedValueCurrency;
+    }
+
+    public void setEstimatedValueCurrency(String estimatedValueCurrency) {
+        this.estimatedValueCurrency = estimatedValueCurrency;
+    }
+
+    public Integer getEstimatedValue() {
+        return estimatedValue;
+    }
+
+    public void setEstimatedValue(Integer estimatedValue) {
+        this.estimatedValue = estimatedValue;
+    }
+
+	public Opportunity.Category getCategory() {
+		return category;
+	}
+
+	public void setCategory(Opportunity.Category category) {
+		this.category = category;
+	}
+
+	public AddressDTO getAddress() {
+		return address;
+	}
+
+	public void setAddress(AddressDTO address) {
+		this.address = address;
+	}
+}

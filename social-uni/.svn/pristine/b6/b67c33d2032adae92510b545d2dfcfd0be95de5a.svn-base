@@ -1,0 +1,32 @@
+# suppress inspection "UnusedProperty" for whole file
+
+# CloverLead
+
+# DataSource
+jdbc.driverClassName=org.mariadb.jdbc.Driver
+spring.datasource.url= jdbc:mariadb://localhost:3306/cloverdb
+spring.datasource.username=root
+spring.datasource.password=some-password
+
+# Hibernate
+spring.jpa.show-sql=false
+#spring.jpa.hibernate.ddl-auto=create
+
+# logging
+#debug=true
+#logging.level.root=WARN
+#logging.level.org.springframework.web=DEBUG
+#logging.level.org.hibernate=DEBUG
+
+
+# json doc
+jsondoc.version=0.1
+jsondoc.basePath=http://localhost:17001
+jsondoc.packages[0]=com.connectik.cloverlead.controller
+jsondoc.packages[1]=com.connectik.cloverlead.service
+jsondoc.packages[2]=com.connectik.cloverlead.model
+jsondoc.playgroundEnabled=true
+jsondoc.displayMethodAs=URI
+
+#Starts app on port
+server.port=17001

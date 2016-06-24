@@ -1,0 +1,32 @@
+package com.connectik.cloverlead.es;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.google.maps.GeoApiContext;
+import com.google.maps.GeocodingApiRequest;
+import com.google.maps.PendingResult.Callback;
+import com.google.maps.model.GeocodingResult;
+
+@Service
+public class GeoLocationService {
+
+	@Autowired
+	private GeoApiContext geoApiContext;
+
+	public GeocodingResult[] getGeoLocation(String query, Callback<GeocodingResult[]> callback) {
+		GeocodingApiRequest request = new GeocodingApiRequest(geoApiContext).language("en").address(query);
+		
+		if (callback == null) {
+			try {
+				return request.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		} else {
+			request.setCallback(callback);
+			return null;
+		}
+	}
+
+}

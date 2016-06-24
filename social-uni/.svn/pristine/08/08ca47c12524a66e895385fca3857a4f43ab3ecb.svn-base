@@ -1,0 +1,13 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+<suite name="CloverLeadTests">
+	<test name="services">
+		<packages>
+			<package name="com.connectik.cloverlead.service.*"></package>
+		</packages>
+	</test>
+	<test name="controllers">
+		<packages>
+			<package name="com.connectik.cloverlead.controller.*"></package>
+		</packages>
+	</test>
+</suite>

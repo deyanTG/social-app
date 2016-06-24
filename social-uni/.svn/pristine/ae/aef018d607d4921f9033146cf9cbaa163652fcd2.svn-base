@@ -1,0 +1,72 @@
+package com.connectik.cloverlead.conf;
+
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.security.RestAuthenticationFailureHandler;
+import com.connectik.cloverlead.security.RestAuthenticationSuccessHandler;
+import com.connectik.cloverlead.service.UserDetailsServiceImpl;
+
+@EnableWebSecurity
+@Configuration
+@EnableJpaAuditing(auditorAwareRef = "springSecurityAuditorAware")
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+	@Autowired
+	@Qualifier(value = "userDetailsService")
+	private UserDetailsServiceImpl userDetailsService;
+
+	@Autowired
+	private RestAuthenticationSuccessHandler authSuccessHandler;
+
+	@Autowired
+	private RestAuthenticationFailureHandler authFailureHandler;
+
+	@Autowired
+	private DataSource dataSource;
+
+	@Override
+	protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+		auth.userDetailsService(userDetailsService);
+	}
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http.csrf().disable().authorizeRequests().antMatchers("/jsondoc", "/registration", "/registrationConfirm")
+				.permitAll().anyRequest().authenticated();
+		http.formLogin().successHandler(authSuccessHandler).failureHandler(authFailureHandler).and().logout()
+				.permitAll().logoutRequestMatcher(new AntPathRequestMatcher("/login", "DELETE"))
+				.logoutSuccessHandler(logoutSuccessHandler()).and().sessionManagement()
+				.maximumSessions(Application.Constants.MAXIMUM_SESSIONS_ALLOWED);
+		http.rememberMe().rememberMeCookieName(Application.Constants.REMEMBER_ME_COOKIE_NAME)
+				.tokenRepository(persistentTokenRepository())
+				.tokenValiditySeconds(Application.Constants.REMEMBER_ME_IN_SECONDS);
+	}
+
+	@Bean
+	public LogoutSuccessHandler logoutSuccessHandler() {
+		return new HttpStatusReturningLogoutSuccessHandler();
+	}
+
+	@Bean
+	public PersistentTokenRepository persistentTokenRepository() {
+		JdbcTokenRepositoryImpl tokenRepositoryImpl = new JdbcTokenRepositoryImpl();
+		tokenRepositoryImpl.setDataSource(dataSource);
+		return tokenRepositoryImpl;
+	}
+}

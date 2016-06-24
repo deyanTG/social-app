@@ -1,0 +1,10 @@
+package com.connectik.cloverlead.exception;
+
+import org.springframework.dao.EmptyResultDataAccessException;
+
+public class ItemNotFoundException extends EmptyResultDataAccessException {
+
+    public ItemNotFoundException(Class clazz, Long id) {
+        super("No class " + clazz.getName() + " entity with id " + id + " exists!", 1);
+    }
+}

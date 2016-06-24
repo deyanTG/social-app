@@ -1,0 +1,265 @@
+package com.connectik.cloverlead.dto;
+
+import com.connectik.cloverlead.model.Chamber;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class CompanyOutput implements EntityOutput {
+
+    private Long id;
+
+    private SimpleUserOutput createdBy;
+
+    private SimpleUserOutput updatedBy;
+
+    private String createdAt;
+
+    private String updatedAt;
+
+    private String name;
+
+    private String website;
+
+    private String logo;
+
+    private String backgroundPhoto;
+
+    private String internalUrl;
+
+    private String fax;
+
+    private String phone;
+
+    private Integer employeesCount;
+
+    private Integer yearFounded;
+
+    private String description;
+
+    private AddressDTO address;
+
+    private Chamber chamber;
+
+    private String chamberJoinDate;
+
+    private List<OpportunityOutput> opportunities = new ArrayList<>();
+
+    private List<String> photos = new ArrayList<>();
+
+    private List<String> videos = new ArrayList<>();
+
+    private List<String> industries = new ArrayList<>();
+
+    private List<String> sectors = new ArrayList<>();
+
+    private List<String> specialties = new ArrayList<>();
+
+    private List<String> interests = new ArrayList<>();
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public SimpleUserOutput getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(SimpleUserOutput createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public SimpleUserOutput getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(SimpleUserOutput updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(String updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getChamberJoinDate() {
+        return chamberJoinDate;
+    }
+
+    public void setChamberJoinDate(String chamberJoinDate) {
+        this.chamberJoinDate = chamberJoinDate;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public String getLogo() {
+        return logo;
+    }
+
+    public void setLogo(String logo) {
+        this.logo = logo;
+    }
+
+    public String getBackgroundPhoto() {
+        return backgroundPhoto;
+    }
+
+    public void setBackgroundPhoto(String backgroundPhoto) {
+        this.backgroundPhoto = backgroundPhoto;
+    }
+
+    public String getInternalUrl() {
+        return internalUrl;
+    }
+
+    public void setInternalUrl(String internalUrl) {
+        this.internalUrl = internalUrl;
+    }
+
+    public String getFax() {
+        return fax;
+    }
+
+    public void setFax(String fax) {
+        this.fax = fax;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public Integer getEmployeesCount() {
+        return employeesCount;
+    }
+
+    public void setEmployeesCount(Integer employeesCount) {
+        this.employeesCount = employeesCount;
+    }
+
+    public Integer getYearFounded() {
+        return yearFounded;
+    }
+
+    public void setYearFounded(Integer yearFounded) {
+        this.yearFounded = yearFounded;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Chamber getChamber() {
+        return chamber;
+    }
+
+    public void setChamber(Chamber chamber) {
+        this.chamber = chamber;
+    }
+
+    public List<OpportunityOutput> getOpportunities() {
+        if(opportunities != null){
+            return opportunities.stream().sorted((o1, o2) -> o1.getId().compareTo(o2.getId())).collect(Collectors.toList());
+        }
+        return new ArrayList<>();
+    }
+
+    public void setOpportunities(List<OpportunityOutput> opportunities) {
+        this.opportunities = opportunities;
+    }
+
+    public List<String> getPhotos() {
+        return photos;
+    }
+
+    public void setPhotos(List<String> photos) {
+        this.photos = photos;
+    }
+
+    public List<String> getVideos() {
+        return videos;
+    }
+
+    public void setVideos(List<String> videos) {
+        this.videos = videos;
+    }
+
+    public List<String> getIndustries() {
+        return industries;
+    }
+
+    public void setIndustries(List<String> industries) {
+        this.industries = industries;
+    }
+
+    public List<String> getSectors() {
+        return sectors;
+    }
+
+    public void setSectors(List<String> sectors) {
+        this.sectors = sectors;
+    }
+
+    public List<String> getInterests() {
+        return interests;
+    }
+
+    public void setInterests(List<String> interests) {
+        this.interests = interests;
+    }
+
+    public List<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(List<String> specialties) {
+        this.specialties = specialties;
+    }
+
+	public AddressDTO getAddress() {
+		return address;
+	}
+
+	public void setAddress(AddressDTO address) {
+		this.address = address;
+	}
+
+
+}

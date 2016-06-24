@@ -1,0 +1,8 @@
+package com.connectik.cloverlead.dto;
+
+public interface EntityOutput {
+
+    public Long getId();
+
+    public void setId(Long id);
+}

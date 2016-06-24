@@ -1,0 +1,16 @@
+package com.connectik.cloverlead;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+
+
+public abstract class CloverTest extends AbstractTestNGSpringContextTests {
+
+	@Autowired
+	protected Environment env;
+	
+	@Autowired
+	protected ApplicationContext context;
+}

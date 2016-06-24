@@ -1,0 +1,107 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dao.CompanyRepository;
+import com.connectik.cloverlead.dao.OpportunityRepository;
+import com.connectik.cloverlead.dto.OpportunityInput;
+import com.connectik.cloverlead.es.ElasticIndexService;
+import com.connectik.cloverlead.exception.ItemNotFoundException;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Opportunity;
+import ma.glasnost.orika.MapperFacade;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.index.IndexResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Service
+@Transactional
+public class OpportunityService {
+
+    @Autowired
+    private OpportunityRepository opportunityRepository;
+
+    @Autowired
+    private CompanyRepository companyRepository;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    @Autowired
+    private ElasticIndexService elastic;
+
+    public List<Opportunity> findAll(Set<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return Collections.emptyList();
+        }
+        return opportunityRepository.findAndFetchAll(ids);
+    }
+
+    public Opportunity save(Long companyId, OpportunityInput opportunityInput) {
+        Company company = companyRepository.get(companyId);
+        if (company == null) {
+            throw new ItemNotFoundException(Company.class, companyId);
+        }
+        Opportunity opportunity = mapper.map(opportunityInput, Opportunity.class);
+        opportunity.setCompany(company);
+        opportunity = opportunityRepository.save(opportunity);
+
+        updateExternalInfo(opportunity);
+
+        return opportunity;
+    }
+
+    public Opportunity update(Long companyId, OpportunityInput opportunityInput) {
+        Opportunity opportunity = opportunityRepository.findAndFetchAll(opportunityInput.getId());
+        if (opportunity == null) {
+            throw new ItemNotFoundException(Opportunity.class, companyId);
+        }
+        mapper.map(opportunityInput, opportunity);
+        opportunityRepository.save(opportunity);
+        updateExternalInfo(opportunity);
+        return opportunity;
+    }
+
+    public void delete(Long id) {
+        opportunityRepository.delete(id);
+    }
+
+    public Set<Opportunity> getActiveOpportunities(Long companyId) {
+        return opportunityRepository.findActiveForCompany(companyId, LocalDateTime.now());
+    }
+
+    public Set<Opportunity> findByCompany(Long companyId) {
+        return opportunityRepository.findByCompany(companyId);
+    }
+
+    private void updateExternalInfo(Opportunity opportunity) {
+        elastic.index(toMap(opportunity), String.valueOf(opportunity.getId()), "companies", "opportunity",
+                new ActionListener<IndexResponse>() {
+                    @Override
+                    public void onResponse(IndexResponse response) {
+                    }
+
+                    @Override
+                    public void onFailure(Throwable e) {
+                        e.printStackTrace();
+                    }
+                });
+    }
+
+
+    public Map<String, Object> toMap(Opportunity opportunity) {
+    	 HashMap map = mapper.map(opportunity, HashMap.class);
+    	 Object object = map.get("company");
+    	 if (object instanceof Map) {
+    		 Map<String, Object> company = (Map) object;
+    		 company.remove("opportunities");
+    		 company.remove("createdBy");
+    		 company.remove("updatedBy");
+    	 }
+    	 return map;
+    }
+}

@@ -1,0 +1,33 @@
+package com.connectik.cloverlead.validation;
+
+import javax.validation.groups.Default;
+
+public interface ValidationGroups {
+
+    interface Company {
+
+        interface Update extends Default {
+        }
+
+        interface Create extends Default {
+        }
+    }
+
+    interface User {
+
+        interface Update extends Default {
+        }
+
+        interface Create extends Default {
+        }
+    }
+
+    interface Chamber {
+
+        interface Update extends Default {
+        }
+
+        interface Create extends Default {
+        }
+    }
+}

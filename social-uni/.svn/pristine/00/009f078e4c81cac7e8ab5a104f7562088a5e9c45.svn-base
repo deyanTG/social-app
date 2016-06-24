@@ -1,0 +1,76 @@
+package com.connectik.cloverlead.controller;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.dto.*;
+import com.connectik.cloverlead.model.*;
+import com.connectik.cloverlead.service.FavouriteSearchService;
+import com.connectik.cloverlead.service.SearchService;
+import ma.glasnost.orika.MapperFacade;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/search")
+public class SearchController {
+
+    @Autowired
+    private SearchService searchService;
+
+    @Autowired
+    private FavouriteSearchService favouriteSearchService;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    @RequestMapping(value = "/companies", method = {RequestMethod.GET, RequestMethod.POST})
+    public Page<CompanyOutput> searchCompanies(@RequestBody SearchInput searchInput) {
+        Page<Company> companies = searchService.searchEntities(SearchableEntity.COMPANY, searchInput);
+        return companies.map(c -> mapper.map(c, CompanyOutput.class));
+    }
+
+    @RequestMapping(value = "/experts", method = {RequestMethod.GET, RequestMethod.POST})
+    public Page<UserOutput> searchExperts(@RequestBody SearchInput searchInput) {
+        Page<User> experts = searchService.searchEntities(SearchableEntity.EXPERT, searchInput);
+        return experts.map(e -> mapper.map(e, UserOutput.class));
+    }
+
+    @RequestMapping(value = "/opportunities", method = {RequestMethod.GET, RequestMethod.POST})
+    public Page<OpportunityOutput> searchOpportunities(@RequestBody SearchInput searchInput) {
+        Page<Opportunity> opportunities = searchService.searchEntities(SearchableEntity.OPPORTUNITY, searchInput);
+        return opportunities.map(op -> mapper.map(op, OpportunityOutput.class));
+    }
+
+    @RequestMapping(value = "/gazetteer", method = RequestMethod.GET)
+    public List<Gazetteer> searchGazetteer(@RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "type", required = false) String type) {
+        return searchService.searchGazetteers(type, query);
+    }
+
+    @RequestMapping(value = "/favourites/{id}", method = RequestMethod.GET)
+    public Page<Object> searchWithFavourite(@PathVariable(value = "id") Long id,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "page_size", defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return searchService.searchWithFavourite(id, page, pageSize);
+    }
+
+    @RequestMapping(value = "/favourites", method = RequestMethod.GET)
+    public Page<FavouriteSearch> find(@RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "page_size", defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return favouriteSearchService.find(query, page, pageSize);
+    }
+
+    @RequestMapping(value = "/favourites", method = RequestMethod.POST)
+    public FavouriteSearch save(@RequestBody FavouriteSearchInput input) {
+        return favouriteSearchService.save(input);
+    }
+
+    @RequestMapping(value = "/favourites/{id}", method = RequestMethod.DELETE)
+    public void delete(@PathVariable(value = "id") Long id) {
+        favouriteSearchService.delete(id);
+    }
+
+}

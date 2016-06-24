@@ -1,0 +1,67 @@
+package com.connectik.cloverlead.controller;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.model.Chamber;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.service.ChamberService;
+import com.connectik.cloverlead.validation.ValidationGroups;
+import org.jsondoc.core.annotation.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@Api(description = "chamber endpoints", name = "/chambers")
+@RestController
+public class ChamberController {
+
+    @Autowired
+    private ChamberService chamberService;
+
+    @ApiMethod(description = "get the chamber with the given id")
+    @RequestMapping(value = "/chambers/{id}", method = RequestMethod.GET)
+    public Chamber get(@ApiPathParam(description = "id of chamber", name = "id") @PathVariable(value = "id") Long id) {
+        return chamberService.get(id);
+    }
+
+    @ApiMethod(description = "create a chamber")
+    @RequestMapping(value = "/chambers", method = RequestMethod.POST)
+    public Chamber save(@ApiBodyObject @RequestBody @Validated(ValidationGroups.Chamber.Create.class) Chamber chamber) {
+        return chamberService.save(chamber);
+    }
+
+    @ApiMethod(description = "create a chamber")
+    @RequestMapping(value = "/chambers", method = RequestMethod.PUT)
+    public Chamber update(@ApiBodyObject @RequestBody @Validated(ValidationGroups.Chamber.Update.class) Chamber chamber) {
+        return chamberService.update(chamber);
+    }
+
+    @ApiMethod(description = "find chambers")
+    @RequestMapping(value = "/chambers", method = RequestMethod.GET)
+    public Page<Chamber> find(@ApiQueryParam(name = "query", description = "search term", required = false)
+                              @RequestParam(name = "query", defaultValue = "", required = false) String query,
+                              @ApiQueryParam(name = "page", description = "page number", required = false, defaultvalue = "0")
+                              @RequestParam(name = "page", defaultValue = "0", required = false) int page,
+                              @ApiQueryParam(name = "page_size", description = "page size", required = false,
+                                      defaultvalue = Application.Constants.DEFAULT_PAGE_SIZE_STR)
+                              @RequestParam(name = "page_size", required = false,
+                                      defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return chamberService.find(query, page, pageSize);
+    }
+
+    @ApiMethod(description = "find companies for chamber with the given id")
+    @RequestMapping(value = "/chambers/{id}/companies", method = RequestMethod.GET)
+    public Page<Company> find(@ApiPathParam(description = "id of chamber", name = "id")
+                              @PathVariable(value = "id") Long id,
+                              @ApiQueryParam(name = "page", description = "page number", required = false,
+                                      defaultvalue = "0")
+                              @RequestParam(name = "page", defaultValue = "0", required = false) int page,
+                              @ApiQueryParam(name = "page_size", description = "page size", required = false,
+                                      defaultvalue = Application.Constants.DEFAULT_PAGE_SIZE_STR)
+                              @RequestParam(name = "page_size", required = false,
+                                      defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return chamberService.getCompanies(id, page, pageSize);
+    }
+
+
+}

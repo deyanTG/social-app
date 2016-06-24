@@ -1,0 +1,72 @@
+package com.connectik.cloverlead.controller;
+
+import com.connectik.cloverlead.Application.Constants;
+import com.connectik.cloverlead.dto.MatchOutput;
+import com.connectik.cloverlead.exception.ItemNotFoundException;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.service.CompanyService;
+import com.connectik.cloverlead.service.MatchService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import static com.connectik.cloverlead.controller.MatchController.MatchType.*;
+
+@RestController
+public class MatchController {
+
+    @Autowired
+    private MatchService matchService;
+
+    @Autowired
+    private CompanyService companyService;
+
+    enum MatchType {
+        COMPANIES,
+        OPPORTUNITIES,
+        EXPERTS
+    }
+
+    @RequestMapping("/match/{companyId}")
+    public MatchOutput match(@PathVariable Long companyId,
+                             @RequestParam(name = "page", defaultValue = "0") int page,
+                             @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+
+        if(!companyService.exists(companyId)){
+            throw new ItemNotFoundException(Company.class, companyId);
+        }
+
+        MatchOutput output = new MatchOutput();
+
+        output.setCompanies(matchService.matchCompanies(companyId, page, pageSize));
+        output.setOpportunities(matchService.matchOpportunities(companyId, page, pageSize));
+        output.setExperts(matchService.matchExperts(companyId, page, pageSize));
+
+        return output;
+    }
+
+    @RequestMapping("/match/{type}/{companyId}")
+    public Page matchTypes(@PathVariable(value = "companyId") Long companyId, @PathVariable(value = "type") String type,
+                               @RequestParam(name = "page", defaultValue = "0") int page,
+                               @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+
+        if(!companyService.exists(companyId)){
+            throw new ItemNotFoundException(Company.class, companyId);
+        }
+
+        if (type.equalsIgnoreCase(COMPANIES.toString())) {
+            return matchService.matchCompanies(companyId, page, pageSize);
+        } else if (type.equalsIgnoreCase(OPPORTUNITIES.toString())) {
+            return matchService.matchOpportunities(companyId, page, pageSize);
+        } else if (type.equalsIgnoreCase(EXPERTS.toString())) {
+            return matchService.matchExperts(companyId, page, pageSize);
+        } else {
+            throw new RuntimeException("not a valid type");
+        }
+    }
+
+
+}

@@ -1,0 +1,63 @@
+package com.connectik.cloverlead.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
+
+import com.connectik.cloverlead.dao.FavouriteSearchRepository;
+import com.connectik.cloverlead.dto.FavouriteSearchInput;
+import com.connectik.cloverlead.model.FavouriteSearch;
+import com.connectik.cloverlead.utils.UserUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Service
+public class FavouriteSearchService {
+
+    @Autowired
+    private FavouriteSearchRepository favouriteSearchRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    public FavouriteSearch getForCurrentUser(Long searchId) {
+        FavouriteSearch search = favouriteSearchRepository.findOne(searchId);
+        Assert.notNull(search);
+        Assert.state(search.getCreatedBy().equals(UserUtils.getCurrentUser()));
+        return search;
+    }
+
+    public Page<FavouriteSearch> find(String query, int page, int pageSize) {
+        if (StringUtils.isEmpty(query)) {
+            return favouriteSearchRepository.findAll(new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        }
+        return favouriteSearchRepository.findByNameContainingIgnoreCase(query.trim().toUpperCase(),
+                new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+
+    }
+
+    public FavouriteSearch save(FavouriteSearchInput input) {
+        FavouriteSearch favouriteSearch = new FavouriteSearch();
+        favouriteSearch.setName(input.getName());
+        favouriteSearch.setDescription(input.getDescription());
+        favouriteSearch.setType(input.getType());
+
+        String searchInput;
+        try {
+            searchInput = objectMapper.writeValueAsString(input.getSearchInput());
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Can't persist search input. Invalid JSON!");
+        }
+        favouriteSearch.setParams(searchInput);
+        return favouriteSearchRepository.save(favouriteSearch);
+    }
+
+    public void delete(Long id) {
+        favouriteSearchRepository.delete(id);
+    }
+
+}

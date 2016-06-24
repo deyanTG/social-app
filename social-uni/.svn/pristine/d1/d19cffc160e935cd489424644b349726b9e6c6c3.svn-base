@@ -1,0 +1,61 @@
+package com.connectik.cloverlead.es;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.index.IndexRequestBuilder;
+import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.Client;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Opportunity;
+import com.connectik.cloverlead.model.User;
+import com.google.common.collect.ImmutableMap;
+
+import ma.glasnost.orika.MapperFacade;
+
+@Service
+public class ElasticIndexService {
+
+	@Autowired
+	private Client esClient;
+
+	@Autowired
+	private MapperFacade mapper;
+	
+	
+	private final static Map<Class<?>, String> indexTypeMapping = ImmutableMap.of(
+			Company.class, "companies", Opportunity.class, "companies", User.class, "users");
+
+
+	public IndexResponse index(Object object, ActionListener<IndexResponse> callback) {
+		Class<?> clazz = object.getClass();
+		String index = indexTypeMapping.get(clazz);
+		if (index == null) {
+			throw new UnsupportedOperationException(clazz.getName() + " does not have a predefined index.");
+		}
+		String type = object.getClass().getSimpleName().toLowerCase();
+		return index(object, index, type, callback);
+	}
+
+	public IndexResponse index(Object object, String index, String type, ActionListener<IndexResponse> callback) {
+		Map<String, Object> map  = new HashMap<>();
+		mapper.map(object, map);
+		String id = map.containsKey("id") ? String.valueOf(map.get("id")) : null;
+		return index(map, id, index, type, callback);
+	}
+
+	public IndexResponse index(Map<String, ?> map, String id, String index, String type, ActionListener<IndexResponse> callback) {
+		IndexRequestBuilder requestBuilder = esClient.prepareIndex(index, type, id).setSource(map);
+
+		if (callback == null) {
+			return requestBuilder.get();
+		} else {
+			requestBuilder.execute(callback);
+			return null;
+		}
+	}
+}

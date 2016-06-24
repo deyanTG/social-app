@@ -1,0 +1,7 @@
+package com.connectik.cloverlead.dao;
+
+import com.connectik.cloverlead.model.UserCompany;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserCompanyRepository extends JpaRepository<UserCompany, Long> {
+}

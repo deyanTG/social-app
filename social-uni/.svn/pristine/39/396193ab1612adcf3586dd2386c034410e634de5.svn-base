@@ -1,0 +1,67 @@
+package com.connectik.cloverlead.model;
+
+
+import org.jsondoc.core.annotation.ApiObject;
+import org.jsondoc.core.annotation.ApiObjectField;
+import org.jsondoc.core.pojo.ApiVisibility;
+
+import javax.persistence.*;
+
+@Entity(name = "user_company")
+@Table(name = "user_company")
+@ApiObject(visibility = ApiVisibility.PUBLIC, name = "UserCompany")
+public class UserCompany {
+
+    @Id
+    @GeneratedValue
+    @Column(name = "id")
+    @ApiObjectField(name = "id")
+    private Long id;
+
+    @ApiObjectField(name = "user")
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @ApiObjectField(name = "company")
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
+
+    @Column(name = "admin")
+    @ApiObjectField(name = "isAdmin")
+    private boolean admin = false;
+
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
+    }
+
+    public boolean isAdmin() {
+        return admin;
+    }
+
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
+    }
+}

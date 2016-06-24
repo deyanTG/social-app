@@ -1,0 +1,209 @@
+package com.connectik.cloverlead.extimport;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.Client;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+
+import com.connectik.cloverlead.dao.CompanyRepository;
+import com.connectik.cloverlead.dao.OpportunityRepository;
+import com.connectik.cloverlead.model.Address;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Company.TypeSize;
+import com.connectik.cloverlead.model.Opportunity;
+import com.connectik.cloverlead.model.Opportunity.Type;
+import com.google.common.collect.ImmutableMap;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonIOException;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+
+import ma.glasnost.orika.MapperFacade;
+
+public class OpportunitiesImport {
+	
+	private final static Map<String, TypeSize> typeSizeMapping = new ImmutableMap.Builder<String, TypeSize>()
+			.put("Industry SME <= 10", TypeSize.INDUSTRY_0_10)
+			.put("Industry SME 11-49", TypeSize.INDUSTRY_11_49)
+			.put("Industry SME 50-249", TypeSize.INDUSTRY_50_249)
+			.put("Industry 250-499", TypeSize.INDUSTRY_250_499)
+			.put("Industry >500", TypeSize.INDUSTRY_500_PLUS)
+			.put("Industry >500 MNE", TypeSize.INDUSTRY_500_PLUS).build();
+
+	@Value("${import.opportunities.bulkSize:250}")
+	private int bulkSize;
+	
+	@Autowired
+	private Client esClient;
+
+	private String oppsJsonPath;
+
+	@Autowired
+	private OpportunityRepository oppsRepo;
+
+	@Autowired
+	private MapperFacade mapper;
+
+	@Autowired
+	private CompanyRepository companyRepo;
+
+	private Set<String> specialtyCache = new HashSet<>();	
+
+	public OpportunitiesImport(String oppsJsonPath) {
+		this.oppsJsonPath = oppsJsonPath;
+	}
+
+	public void start() throws JsonIOException, JsonSyntaxException, FileNotFoundException {
+		File file = new File(oppsJsonPath);
+		if (!file.canRead()) {
+			throw new IllegalArgumentException("Cannot access file " + oppsJsonPath);
+		}
+
+		new Thread() {
+			public void run() {
+        		JsonParser parser = new JsonParser();
+        		try {
+					JsonElement element = parser.parse(new FileReader(file));
+					processElements(element.getAsJsonArray());
+				} catch (JsonIOException | JsonSyntaxException | FileNotFoundException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		}.start();
+	}
+	
+	private void processElements(JsonArray array) {
+		int i = 0;
+		
+		BulkRequestBuilder bulk = esClient.prepareBulk();
+
+		for (JsonElement element : array) {
+			try {
+				addToBulk(element, bulk);
+				if (++i % bulkSize == 0) {
+					final int j = i;
+					bulk.execute(new ActionListener<BulkResponse>() {
+						@Override
+						public void onResponse(BulkResponse response) {
+							System.out.println("Successfully indexed opportunities bulk " + (j / bulkSize));
+						}
+						@Override
+						public void onFailure(Throwable e) {
+							e.printStackTrace();
+						}
+					});
+					oppsRepo.flush();
+					bulk = esClient.prepareBulk();
+				}
+			} catch (Throwable e) {
+				e.printStackTrace();
+			}
+		}
+		bulk.get();
+	}
+
+	private void addToBulk(JsonElement element, BulkRequestBuilder bulk) {
+		JsonObject object = element.getAsJsonObject();
+
+		Opportunity opportunity = new Opportunity();
+
+		String title = object.get("title").getAsString();
+		opportunity.setTitle(title);
+
+		JsonElement summary = object.get("summary");
+		JsonElement description = object.get("description");
+		String combinedDescription = 
+				summary !=  null ? (summary.getAsString() + " ") : ""
+				+ description != null ? description.getAsString() : "";
+
+		opportunity.setDescription(combinedDescription);
+
+		Set<String> specialties = new HashSet<>();
+		Utils.fillSpecialties(object.getAsJsonArray("tech_keywords"), specialties, true);
+		Utils.fillSpecialties(object.getAsJsonArray("market_keywords"), specialties, true);
+		Utils.fillSpecialties(object.getAsJsonArray("nace_keywords"), specialties, true);
+
+		opportunity.setSpecialties(new ArrayList<>(specialties));
+
+		Address address = new Address();
+		String country = Utils.getAsString(object, "client_customer_country");
+		if (country != null) {
+    		address.setCountry(country);
+    		opportunity.setAddress(address);
+		}
+
+		String profileType = Utils.getAsString(object, "profile_type");
+		if (!StringUtils.isBlank(profileType)) {	
+			profileType = profileType.toUpperCase();
+			Type type = profileType.contains("OFFER") ? Type.OFFER :
+				profileType.contains("REQUEST") ? Type.REQUEST : null;
+			opportunity.setType(type);
+		}
+
+
+		/* --- Create fake company --- */
+		Company company = new Company();
+		company.setName(title);
+		company.setAddress(address);
+
+		String clientTypeSize = Utils.getAsString(object, "client_type_size");
+		company.setTypeSize(typeSizeMapping.containsKey(clientTypeSize)
+				? typeSizeMapping.get(clientTypeSize) : TypeSize.OTHER);
+
+		company.setYearFounded(Utils.getAsInt(object, "client_year_established"));
+
+		company = companyRepo.save(company);
+		
+		Map<String, Object> companySource = new HashMap<>();
+		mapper.map(company, companySource);
+		bulk.add(esClient.prepareIndex("companies", "company", String.valueOf(company.getId())).setSource(companySource));
+		/* --- */
+
+		opportunity.setCompany(company);
+		opportunity = oppsRepo.save(opportunity);
+
+		Map<String, Object> opSource = new HashMap<>();
+		mapper.map(opportunity, opSource);
+		opSource.put("specialties_analyzed", specialties.toArray(new String[specialties.size()]));
+		opSource.put("company", ImmutableMap.of("id", company.getId(), "name", company.getName()));
+		bulk.add(esClient.prepareIndex("companies", "opportunity", String.valueOf(opportunity.getId())).setSource(opSource));
+		
+		for (String s : specialties) {
+			if (!specialtyCache.contains(s)) {
+				bulk.add(esClient.prepareIndex("industries", "specialty", String.valueOf(s.hashCode()))
+						.setSource(buildSuggestableSource(s)));
+			}
+		}
+	}
+
+	private Map<String, ?> buildSuggestableSource(String term) {
+		String[] suggestInput = Arrays.asList(term.split(" +")).stream()
+				.map(s -> s.trim().replaceAll("\\W", ""))
+				.collect(Collectors.toList()).toArray(new String[0]);
+		
+		String suggestOutput = term;
+		return ImmutableMap.of(
+				"name", term,
+				"suggest", ImmutableMap.of(
+						"input", suggestInput,
+						"output", suggestOutput));
+	}
+	
+	
+}

@@ -1,0 +1,51 @@
+package com.connectik.cloverlead.controller;
+
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.SpringApplicationConfiguration;
+import org.springframework.http.ResponseEntity;
+import org.testng.annotations.Test;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.dao.UserRepository;
+import com.connectik.cloverlead.model.User;
+
+@SpringApplicationConfiguration(Application.class)
+public class UserControllerTest extends ControllerTest {
+
+	@Autowired
+	private UserRepository userRepo;
+
+	@Test
+	public void createUser() {
+		User user = new User();
+		user.setFirstName("first");
+		user.setLastName("last"); 
+
+		ResponseEntity<User> response = restTemplate.postForEntity(endpoint("user"), user, User.class);
+		
+		assertThat(response.getBody().getFirstName(), equalTo("first"));
+		assertThat(response.getBody().getLastName(), equalTo("last"));
+	}
+
+	@Test
+	public void updateUser() {
+		User user = new User();
+		user.setFirstName("first");
+		user.setLastName("last");
+		user = userRepo.saveAndFlush(user);
+
+		User update = new User();
+		update.setId(user.getId());
+		update.setFirstName("First");
+		update.setLastName("Last");
+		restTemplate.put(endpoint("user"), update);
+
+		User fetched = userRepo.findOne(user.getId());
+		
+		assertThat(fetched.getFirstName(), equalTo("First"));
+		assertThat(fetched.getLastName(), equalTo("Last"));
+	}
+}

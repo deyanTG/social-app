@@ -1,0 +1,47 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dao.ChamberRepository;
+import com.connectik.cloverlead.model.Chamber;
+import com.connectik.cloverlead.model.Company;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+@Service
+@Transactional
+public class ChamberService {
+
+    @Autowired
+    private ChamberRepository chamberRepository;
+
+    public Chamber get(Long id) {
+        return chamberRepository.findOne(id);
+    }
+
+    public Chamber save(Chamber chamber) {
+        return chamberRepository.save(chamber);
+    }
+
+    public Chamber update(Chamber chamber) {
+        return chamberRepository.save(chamber);
+    }
+
+    public Page<Chamber> find(String query, int page, int pageSize) {
+        if (StringUtils.isEmpty(query)) {
+            return chamberRepository.findAll(new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        } else {
+            return chamberRepository.findByNameContainingIgnoreCase(query.trim().toUpperCase(),
+                    new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        }
+    }
+
+    public Page<Company> getCompanies(Long id, int page, int pageSize) {
+        return chamberRepository.getCompanies(id, new PageRequest(page, pageSize,
+                Sort.Direction.ASC, "name", "id"));
+    }
+
+}

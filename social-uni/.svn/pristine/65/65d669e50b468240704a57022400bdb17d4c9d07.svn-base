@@ -1,0 +1,26 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.Utils;
+import com.connectik.cloverlead.dao.AuditRecordRepository;
+import com.connectik.cloverlead.model.AuditRecord;
+import com.connectik.cloverlead.model.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AuditService {
+
+    @Autowired
+    private AuditRecordRepository auditRecordRepository;
+
+
+    public void auditRequest(AuditRecord.RequestType requestType, String param) {
+        User user = Utils.getCurrentUser();
+        String agent = Utils.getCurrentUserAgent();
+        String ipAddress = Utils.getCurrentUserIPAddress();
+        String sessionId = Utils.getCurrentUserSessionId();
+        AuditRecord auditRecord = new AuditRecord(requestType, param, user, ipAddress, sessionId, agent);
+        auditRecordRepository.save(auditRecord);
+    }
+
+}

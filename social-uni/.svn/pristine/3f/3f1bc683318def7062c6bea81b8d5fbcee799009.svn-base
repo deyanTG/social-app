@@ -1,0 +1,101 @@
+package com.connectik.cloverlead.controller;
+
+
+import ma.glasnost.orika.MapperFacade;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.connectik.cloverlead.Application.Constants;
+import com.connectik.cloverlead.dto.CompanyInput;
+import com.connectik.cloverlead.dto.CompanyOutput;
+import com.connectik.cloverlead.dto.OpportunityInput;
+import com.connectik.cloverlead.dto.OpportunityOutput;
+import com.connectik.cloverlead.dto.UserOutput;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Opportunity;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.service.CompanyService;
+import com.connectik.cloverlead.service.OpportunityService;
+import com.connectik.cloverlead.validation.ValidationGroups;
+
+@RestController
+public class CompanyController {
+
+    @Autowired
+    private CompanyService companyService;
+
+    @Autowired
+    private OpportunityService opportunityService;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    @RequestMapping(value = "/companies/{id}", method = RequestMethod.GET)
+    public CompanyOutput get(@PathVariable(value = "id") Long id) {
+        Company company = companyService.get(id);
+        return mapper.map(company, CompanyOutput.class);
+    }
+
+    @RequestMapping(value = "/companies", method = RequestMethod.GET)
+    public Page<CompanyOutput> list(@RequestParam(name = "query", required = false) String query,
+                                    @RequestParam(name = "page", defaultValue = "0") int page,
+                                    @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        Page<Company> companies = companyService.list(query, page, pageSize);
+        return companies.map(company -> mapper.map(company, CompanyOutput.class));
+    }
+
+    @RequestMapping(value = "/companies", method = RequestMethod.POST)
+    public CompanyOutput save(@RequestBody @Validated(ValidationGroups.Company.Create.class) CompanyInput company) {
+        Company createdCompany = companyService.save(company);
+        return mapper.map(createdCompany, CompanyOutput.class);
+    }
+
+    @RequestMapping(value = "/companies", method = RequestMethod.PUT)
+    public CompanyOutput update(@RequestBody @Validated(ValidationGroups.Company.Update.class) CompanyInput company) {
+        Company updatedCompany = companyService.update(company);
+        return mapper.map(updatedCompany, CompanyOutput.class);
+    }
+
+    @RequestMapping(value = "/companies/{id}", method = RequestMethod.DELETE)
+    public void delete(@PathVariable(value = "id") Long id) {
+        companyService.delete(id);
+    }
+
+    @RequestMapping(value = "/companies/{id}/users", method = RequestMethod.GET)
+    public Page<UserOutput> getCompanies(@PathVariable(value = "id") Long id,
+                                         @RequestParam(name = "page", defaultValue = "0", required = false) int page,
+                                         @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR)
+                                                 int pageSize) {
+        Page<User> users = companyService.getUsers(id, page, pageSize);
+        return users.map(user -> mapper.map(user, UserOutput.class));
+    }
+
+    @RequestMapping(value = "/companies/{id}/opportunities", method = RequestMethod.POST)
+    public OpportunityOutput saveOpportunity(@PathVariable(value = "id") Long id,
+                                             @RequestBody @Validated(ValidationGroups.Opportunity.Create.class) OpportunityInput opportunity) {
+        Opportunity savedOpportunity = opportunityService.save(id, opportunity);
+        return mapper.map(savedOpportunity, OpportunityOutput.class);
+    }
+
+    @RequestMapping(value = "/companies/{id}/opportunities", method = RequestMethod.PUT)
+    public OpportunityOutput updateOpportunity(@PathVariable(value = "id") Long companyId,
+                                               @RequestBody @Validated(ValidationGroups.Opportunity.Update.class) OpportunityInput opportunity) {
+        Opportunity updatedOpportunity = opportunityService.update(companyId, opportunity);
+        return mapper.map(updatedOpportunity, OpportunityOutput.class);
+    }
+
+    @RequestMapping(value = "/companies/{company_id}/opportunities/{id}", method = RequestMethod.DELETE)
+    public void deleteOpportunity(@PathVariable(value = "company_id") Long companyId,
+                                  @PathVariable(value = "id") Long id) {
+        opportunityService.delete(id);
+    }
+
+}

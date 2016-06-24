@@ -1,0 +1,135 @@
+package com.connectik.cloverlead.extimport;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.client.Client;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
+import org.springframework.util.concurrent.ListenableFuture;
+
+import com.connectik.cloverlead.dao.UserRepository;
+import com.connectik.cloverlead.model.Address;
+import com.connectik.cloverlead.model.User;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
+
+import ma.glasnost.orika.MapperFacade;
+
+public class ExpertsImport {
+
+    public final String EXPERT_TYPE = "user";
+
+    private String filePath;
+
+    @Value("${import.experts.bulkSize:250}")
+    private int bulkSize;
+
+    @Value("${es.index.data}")
+    private String dataIndex;
+
+    @Autowired
+    private Client esClient;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    public ExpertsImport(String filePath) {
+        this.filePath = filePath;
+    }
+
+    public void start() {
+        ListenableFuture<JSONArray> expertsPromise = readExperts();
+        expertsPromise.addCallback(this::saveExperts, RuntimeException::new);
+    }
+
+    @Async
+    private ListenableFuture<JSONArray> readExperts() {
+        try (FileReader expertsFile = new FileReader(filePath)) {
+            JSONArray results = new JSONArray(new JSONTokener(expertsFile));
+            return new AsyncResult<>(results);
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Async
+    private void saveExperts(JSONArray experts) {
+        BulkRequestBuilder bulkBuilder = esClient.prepareBulk();
+        for (int i = 0; i < experts.length(); i++) {
+            JSONObject expertJson = experts.getJSONObject(i);
+            User user = new User();
+            Map<String, Object> userMap = new HashMap<>();
+            String name = expertJson.optString("name");
+            if (StringUtils.isNotBlank(name)) {
+                int firstSpaceIdx = name.indexOf(' ');
+                if (firstSpaceIdx != -1) {
+                    user.setFirstName(name.substring(0, firstSpaceIdx));
+                    user.setLastName(name.substring(firstSpaceIdx));
+                    userMap.put("firstName", user.getFirstName());
+                    userMap.put("lastName", user.getLastName());
+                } else {
+                    user.setFirstName(name);
+                    userMap.put("firstName", name);
+                }
+            }
+            user.setUsername(expertJson.optString("email"));
+            userMap.put("username", user.getUsername());
+
+            user.setPosition(expertJson.optString("position"));
+            userMap.put("position", user.getPosition());
+            user.setFax(expertJson.optString("fax"));
+            userMap.put("fax", user.getFax());
+
+            if (StringUtils.isNotBlank(expertJson.optString("phone"))) {
+                user.setPhoneNumbers(Lists.newArrayList(expertJson.getString("phone")));
+                userMap.put("phone", user.getPhoneNumbers());
+            }
+
+            JSONObject addressJson = expertJson.optJSONObject("address");
+            if (addressJson != null) {
+                Address address = new Address();
+                address.setCity(addressJson.optString("city"));
+                address.setCountry(addressJson.optString("country"));
+                address.setState(addressJson.optString("state"));
+
+                user.setAddress(address);
+                userMap.put("address", mapper.map(address, HashMap.class));
+            }
+
+            if (expertJson.optJSONArray("industries") != null) {
+                List<String> specialties = new ArrayList<>();
+                expertJson.getJSONArray("industries").forEach(s -> specialties.add((String) s));
+                user.setSpecialties(specialties);
+                userMap.put("specialties", specialties);
+                userMap.put("specialties_analyzed", specialties);
+            }
+            user.setExpert(true);
+            userMap.put("is_expert", true);
+            user.setEnabled(false);
+            try {
+                userRepository.save(user);
+            } catch (Exception e) {
+                System.out.println("The import dump may contain duplicate data, ignoring..." + e);
+                continue;
+            }
+            bulkBuilder.add(esClient.prepareIndex(dataIndex, EXPERT_TYPE).setSource(userMap).setId(user.getId().toString()));
+        }
+        bulkBuilder.execute();
+    }
+
+}

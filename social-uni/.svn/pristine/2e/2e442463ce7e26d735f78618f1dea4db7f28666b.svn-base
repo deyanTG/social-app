@@ -1,0 +1,48 @@
+package com.connectik.cloverlead.conf;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.extimport.ExpertsImport;
+import com.connectik.cloverlead.extimport.GeoLocator;
+import com.connectik.cloverlead.extimport.LinkedInCSVImport;
+import com.connectik.cloverlead.extimport.OpportunitiesImport;
+
+@Profile("import")
+@Configuration
+public class DataImportConfig {
+
+	@Autowired
+	private Environment env;
+	
+	@Bean(initMethod = "start")
+	@PropertyConditional("import.companies.csv")
+	public LinkedInCSVImport linkedInCSVImport() {
+		return new LinkedInCSVImport(env.getProperty("import.companies.csv", 
+				Application.Constants.DEFAULT_LINKEDIN_CSV_FILE_PATH));
+	}
+	
+	@Bean(initMethod = "start")
+	@PropertyConditional("import.opportunities.json")
+	public OpportunitiesImport opportunitiesImport() {
+		return new OpportunitiesImport(env.getProperty("import.opportunities.json", 
+				Application.Constants.DEFAULT_OPPORTUNITIES_JSON_FILE_PATH));
+	}
+	
+	@Bean(initMethod = "start")
+    @PropertyConditional("import.experts.json")
+    public ExpertsImport expertsImport() {
+        return new ExpertsImport(env.getProperty("import.experts.json", 
+                Application.Constants.DEFAULT_EXPERT_JSON_FILE_PATH));
+    }
+	
+	@Bean
+	@PropertyConditional(value = "import:geoLocationEnabled", propertyValue = "true")
+	public GeoLocator geoLocator() {
+		return new GeoLocator();
+	}
+}

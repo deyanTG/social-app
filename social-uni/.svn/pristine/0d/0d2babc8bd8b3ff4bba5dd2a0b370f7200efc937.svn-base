@@ -1,0 +1,182 @@
+package com.connectik.cloverlead.model;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity(name = "audit_record")
+@Table(name = "audit_record")
+public class AuditRecord {
+
+	public enum RequestType {
+		COMPANY_GET, COMPANY_LIST, COMPANY_SEARCH, USER_SUCCESSFUL_LOGIN
+	}
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	public Long id;
+
+	@Column(name = "request_type")
+	@Enumerated(EnumType.STRING)
+	private RequestType requestType;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "user_id")
+	public User user;
+
+	@Column(name = "created_at")
+	private LocalDateTime createdAt;
+
+	@Column(name = "ip_address")
+	private String ipAddress;
+
+	@Column(name = "session_id")
+	private String sessionId;
+
+	@Column(name = "user_agent")
+	private String userAgent;
+
+	@Column(name = "request_param_id")
+	private Long requestParam_Id;
+
+	@Column(name = "request_param_query")
+	private String requestParam_Query;
+
+	@Column(name = "request_param_supply")
+	private String requestParam_Supply;
+
+	@Column(name = "request_param_demand")
+	private String requestParam_Demand;
+
+	@Column(name = "request_param_description")
+	private String requestParam_Description;
+
+	@Column(name = "request_param_to_be_refined")
+	private String requestParam_toBeRefined;
+
+	@Column(name = "request_param_login_provider")
+	@Enumerated(EnumType.STRING)
+	private AccountProvider requestParam_loginProvider;
+
+	public AuditRecord(RequestType requestType, User user, String ipAddress, String sessionId, String userAgent) {
+		this.requestType = requestType;
+		this.user = user;
+		this.ipAddress = ipAddress;
+		this.sessionId = sessionId;
+		this.userAgent = userAgent;
+		this.createdAt = LocalDateTime.now();
+		this.requestParam_loginProvider = AccountProvider.LOCAL;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public AccountProvider getRequestParam_loginProvider() {
+		return requestParam_loginProvider;
+	}
+
+	public void setRequestParam_loginProvider(AccountProvider requestParam_loginProvider) {
+		this.requestParam_loginProvider = requestParam_loginProvider;
+	}
+
+	public RequestType getRequestType() {
+		return requestType;
+	}
+
+	public void setRequestType(RequestType requestType) {
+		this.requestType = requestType;
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
+
+	public String getIpAddress() {
+		return ipAddress;
+	}
+
+	public void setIpAddress(String ipAddress) {
+		this.ipAddress = ipAddress;
+	}
+
+	public String getUserAgent() {
+		return userAgent;
+	}
+
+	public void setUserAgent(String userAgent) {
+		this.userAgent = userAgent;
+	}
+
+	public String getSessionId() {
+		return sessionId;
+	}
+
+	public void setSessionId(String sessionId) {
+		this.sessionId = sessionId;
+	}
+
+	public Long getRequestParam_Id() {
+		return requestParam_Id;
+	}
+
+	public void setRequestParam_Id(Long requestParam_Id) {
+		this.requestParam_Id = requestParam_Id;
+	}
+
+	public String getRequestParam_Query() {
+		return requestParam_Query;
+	}
+
+	public void setRequestParam_Query(String requestParam_Query) {
+		this.requestParam_Query = requestParam_Query;
+	}
+
+	public String getRequestParam_Supply() {
+		return requestParam_Supply;
+	}
+
+	public void setRequestParam_Supply(String requestParam_Supply) {
+		this.requestParam_Supply = requestParam_Supply;
+	}
+
+	public String getRequestParam_Demand() {
+		return requestParam_Demand;
+	}
+
+	public void setRequestParam_Demand(String requestParam_Demand) {
+		this.requestParam_Demand = requestParam_Demand;
+	}
+
+	public String getRequestParam_Description() {
+		return requestParam_Description;
+	}
+
+	public void setRequestParam_Description(String requestParam_Description) {
+		this.requestParam_Description = requestParam_Description;
+	}
+
+	public String getRequestParam_toBeRefined() {
+		return requestParam_toBeRefined;
+	}
+
+	public void setRequestParam_toBeRefined(String requestParam_toBeRefined) {
+		this.requestParam_toBeRefined = requestParam_toBeRefined;
+	}
+
+}

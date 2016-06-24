@@ -1,0 +1,59 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dao.AuditRecordRepository;
+import com.connectik.cloverlead.model.AccountProvider;
+import com.connectik.cloverlead.model.AuditRecord;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.utils.UserUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AuditService {
+
+	@Autowired
+	private AuditRecordRepository auditRecordRepository;
+
+	public void auditRequest(AuditRecord.RequestType requestType) {
+		AuditRecord auditRecord = build(requestType);
+		auditRecordRepository.save(auditRecord);
+	}
+
+	public void auditLoginRequest(AuditRecord.RequestType requestType, AccountProvider provider) {
+		AuditRecord auditRecord = build(requestType);
+		auditRecord.setRequestParam_loginProvider(provider);
+		auditRecordRepository.save(auditRecord);
+	}
+
+	public void auditGetRequest(AuditRecord.RequestType requestType, Long requestParam_Id) {
+		AuditRecord auditRecord = build(requestType);
+		auditRecord.setRequestParam_Id(requestParam_Id);
+		auditRecordRepository.save(auditRecord);
+	}
+
+	public void auditListRequest(AuditRecord.RequestType requestType, String requestParam_Query) {
+		AuditRecord auditRecord = build(requestType);
+		auditRecord.setRequestParam_Query(requestParam_Query);
+		auditRecordRepository.save(auditRecord);
+	}
+
+	public void auditSearchRequest(AuditRecord.RequestType requestType, String supply, String demand,
+			String description, String toBeRefined) {
+		AuditRecord auditRecord = build(requestType);
+		auditRecord.setRequestParam_Supply(supply);
+		auditRecord.setRequestParam_Demand(demand);
+		auditRecord.setRequestParam_Description(description);
+		auditRecord.setRequestParam_toBeRefined(toBeRefined);
+		auditRecordRepository.save(auditRecord);
+	}
+
+	private AuditRecord build(AuditRecord.RequestType requestType) {
+		User user = UserUtils.getCurrentUser();
+		String agent = UserUtils.getCurrentUserAgent();
+		String ipAddress = UserUtils.getCurrentUserIPAddress();
+		String sessionId = UserUtils.getCurrentUserSessionId();
+		AuditRecord auditRecord = new AuditRecord(requestType, user, ipAddress, sessionId, agent);
+		return auditRecord;
+	}
+
+}

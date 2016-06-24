@@ -1,0 +1,121 @@
+package com.connectik.cloverlead.service;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import com.connectik.cloverlead.dao.UserRepository;
+import com.connectik.cloverlead.dao.VerificationTokenRepository;
+import com.connectik.cloverlead.event.OnRegistrationCompleteEvent;
+import com.connectik.cloverlead.exception.EmailExistsException;
+import com.connectik.cloverlead.exception.ItemNotFoundException;
+import com.connectik.cloverlead.exception.VerificationTokenExpiredException;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.model.UserRole;
+import com.connectik.cloverlead.model.VerificationToken;
+
+/**
+ * Created by Tan on 18-Apr-16. User service class
+ */
+@Service
+@Transactional
+public class UserService {
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private VerificationTokenRepository tokenRepository;
+
+	@Autowired
+	private ApplicationEventPublisher eventPublisher;
+
+	public User get(Long id) {
+		return userRepository.findOne(id);
+	}
+
+	public Page<User> find(String query, int page, int pageSize) {
+		if (StringUtils.isEmpty(query)) {
+			return userRepository
+					.findAll(new PageRequest(page, pageSize, Sort.Direction.ASC, "lastName", "firstName", "id"));
+		} else {
+			return userRepository.find(query.trim().toLowerCase(),
+					new PageRequest(page, pageSize, Sort.Direction.ASC, "lastName", "firstName", "id"));
+		}
+	}
+
+	public User save(User user) {
+		return userRepository.save(user);
+	}
+
+	public User update(User user) {
+		return userRepository.save(user);
+	}
+
+	public Page<Company> getCompanies(Long id, int page, int pageSize) {
+		return userRepository.getCompanies(id,
+				new PageRequest(page, pageSize, Sort.Direction.ASC, "company.name", "company.id"));
+	}
+
+	public User registerNewUserAccount(String email, String password, String firstName, String lastName)
+			throws EmailExistsException {
+		if (emailExist(email)) {
+			throw new EmailExistsException("There is an account with that email adress: " + email);
+		}
+		User user = new User();
+		user.setFirstName(firstName);
+		user.setLastName(lastName);
+		user.setPassword(password);
+		user.setUsername(email);
+		UserRole role = new UserRole("ROLE_USER");
+		user.addRole(role);
+		User u = userRepository.save(user);
+		eventPublisher.publishEvent(new OnRegistrationCompleteEvent(user, Locale.US, "http://localhost:17001"));
+		return u;
+	}
+
+	private boolean emailExist(String email) {
+		User user = userRepository.findOneByUsername(email);
+		if (user != null) {
+			return true;
+		}
+		return false;
+	}
+
+	public User getUser(String verificationToken) {
+		User user = tokenRepository.findByToken(verificationToken).getUser();
+		return user;
+	}
+
+	public VerificationToken getVerificationToken(String VerificationToken) {
+		return tokenRepository.findByToken(VerificationToken);
+	}
+
+	public void createVerificationToken(User user, String token) {
+		VerificationToken myToken = new VerificationToken(token, user);
+		tokenRepository.save(myToken);
+	}
+
+	public void confirmRegistration(String token) {
+		VerificationToken verificationToken = this.getVerificationToken(token);
+		if (verificationToken == null) {
+			throw new ItemNotFoundException(VerificationToken.class, null);
+		}
+		User user = verificationToken.getUser();
+		LocalDateTime timeNow = LocalDateTime.now();
+		if (verificationToken.getExpiryDate().isBefore(timeNow)) {
+			throw new VerificationTokenExpiredException();
+		}
+
+		user.setEnabled(true);
+	}
+}

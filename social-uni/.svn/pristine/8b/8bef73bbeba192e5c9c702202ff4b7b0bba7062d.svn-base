@@ -1,0 +1,173 @@
+package com.connectik.cloverlead.dto;
+
+
+import com.connectik.cloverlead.validation.ValidationGroups;
+
+import javax.validation.constraints.NotNull;
+import java.util.HashSet;
+import java.util.Set;
+
+public class UserInput {
+
+    @NotNull(groups = ValidationGroups.User.Update.class)
+    private Long id;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String bio;
+
+    private String title;
+
+    private Set<String> phoneNumbers = new HashSet<>();
+
+    private Set<String> professionalAssociations = new HashSet<>();
+
+    private Set<String> languages = new HashSet<>();
+
+    private Boolean expert = false;
+
+    private Set<String> education = new HashSet<>();
+
+    private Set<String> specialties = new HashSet<>();
+
+    private Set<String> industries = new HashSet<>();
+
+    private String organisation;
+
+    private String fax;
+
+    private String avatar;
+
+    private AddressDTO address;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+
+    public Set<String> getPhoneNumbers() {
+        return phoneNumbers;
+    }
+
+    public void setPhoneNumbers(Set<String> phoneNumbers) {
+        this.phoneNumbers = phoneNumbers;
+    }
+
+    public Set<String> getProfessionalAssociations() {
+        return professionalAssociations;
+    }
+
+    public void setProfessionalAssociations(Set<String> professionalAssociations) {
+        this.professionalAssociations = professionalAssociations;
+    }
+
+    public Set<String> getLanguages() {
+        return languages;
+    }
+
+    public void setLanguages(Set<String> languages) {
+        this.languages = languages;
+    }
+
+    public Boolean getExpert() {
+        return expert;
+    }
+
+    public void setExpert(Boolean expert) {
+        this.expert = expert;
+    }
+
+    public Set<String> getEducation() {
+        return education;
+    }
+
+    public void setEducation(Set<String> education) {
+        this.education = education;
+    }
+
+    public Set<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(Set<String> specialties) {
+        this.specialties = specialties;
+    }
+
+    public Set<String> getIndustries() {
+        return industries;
+    }
+
+    public void setIndustries(Set<String> industries) {
+        this.industries = industries;
+    }
+
+    public String getOrganisation() {
+        return organisation;
+    }
+
+    public void setOrganisation(String organisation) {
+        this.organisation = organisation;
+    }
+
+    public String getFax() {
+        return fax;
+    }
+
+    public void setFax(String fax) {
+        this.fax = fax;
+    }
+
+	public AddressDTO getAddress() {
+		return address;
+	}
+
+	public void setAddress(AddressDTO address) {
+		this.address = address;
+	}
+}

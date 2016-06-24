@@ -1,0 +1,55 @@
+package com.connectik.cloverlead.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.connectik.cloverlead.Application.Constants;
+import com.connectik.cloverlead.model.Chamber;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.service.ChamberService;
+import com.connectik.cloverlead.validation.ValidationGroups;
+
+@RestController
+public class ChamberController {
+
+    @Autowired
+    private ChamberService chamberService;
+
+    @RequestMapping(value = "/chambers/{id}", method = RequestMethod.GET)
+    public Chamber get(@PathVariable(value = "id") Long id) {
+        return chamberService.get(id);
+    }
+
+    @RequestMapping(value = "/chambers", method = RequestMethod.POST)
+    public Chamber save(@RequestBody @Validated(ValidationGroups.Chamber.Create.class) Chamber chamber) {
+        return chamberService.save(chamber);
+    }
+
+    @RequestMapping(value = "/chambers", method = RequestMethod.PUT)
+    public Chamber update(@RequestBody @Validated(ValidationGroups.Chamber.Update.class) Chamber chamber) {
+        return chamberService.update(chamber);
+    }
+
+    @RequestMapping(value = "/chambers", method = RequestMethod.GET)
+    public Page<Chamber> find(@RequestParam(name = "query", required = false) String query,
+                              @RequestParam(name = "page", defaultValue = "0") int page,
+                              @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return chamberService.find(query, page, pageSize);
+    }
+
+    @RequestMapping(value = "/chambers/{id}/companies", method = RequestMethod.GET)
+    public Page<Company> find(@PathVariable(value = "id") Long id,
+                              @RequestParam(name = "page", defaultValue = "0") int page,
+                              @RequestParam(name = "page_size", defaultValue = Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return chamberService.getCompanies(id, page, pageSize);
+    }
+
+
+}

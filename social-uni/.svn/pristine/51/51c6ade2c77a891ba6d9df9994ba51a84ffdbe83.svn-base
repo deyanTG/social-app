@@ -1,0 +1,249 @@
+package com.connectik.cloverlead.extimport;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.Client;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+
+import com.connectik.cloverlead.dao.CompanyRepository;
+import com.connectik.cloverlead.model.Address;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Company.TypeSize;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import ma.glasnost.orika.MapperFacade;
+
+public class LinkedInCSVImport {
+	
+	private static final String CSV_FIELD_INDUSTRY = "industry";
+
+	private static final String FIELD_SPECIALTIES = "specialties";
+
+	private static final String FIELD_SPECIALTIES_ANALYZED = "specialties_analyzed";
+
+	private static final String FIELD_INDUSTRY = "industries";
+	
+	private static final String FIELD_INDUSTRY_ANALYZED = "industries_analyzed";
+
+	private static final String FIELD_ADDRESS = "address";
+	
+	private static final String FIELD_HEADQUARTERS = "headquarters";
+
+	private static final String FIELD_GEO_LOCATION = "geoLocation";
+
+	private static final String FIELD_FOUNDED = "founded";
+
+//	private final static char CSV_DELIMITER = '\t';
+	
+	private final static char CSV_DELIMITER = ',';
+
+	private final static Charset CSV_ENCODING = Charset.forName("UTF-8");
+
+	private final static CSVFormat CSV_FORMAT = CSVFormat.EXCEL.withDelimiter(CSV_DELIMITER).withHeader();
+
+	private Set<String> industryCache = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	
+	private Set<String> specialtyCache = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	
+	@Autowired
+	private Client elasticClient;
+
+	@Autowired
+	private CompanyRepository companyRepo;
+
+	@Autowired(required = false)
+	private GeoLocator geoLocator;
+	
+	@Autowired
+	private MapperFacade mapper; 
+	
+	@Value("${es.type.company:company}")
+	private String esTypeCompany = "company";
+
+	@Value("${es.index.companies:companies}")
+	private String esIndexCompanies = "companies";
+	
+	@Value("${es.index.industries:industries}")
+	private String esIndexIndustries;
+	
+	@Value("${es.type.industry:industry}")
+	private String esTypeIndustry;
+	
+	@Value("${es.type.specialty:specialty}")
+	private String esTypeSpecialty;
+
+	@Value("${import.companies.bulkSize:100}")
+	private int bulkSize;
+
+	private final String csvFilePath;
+
+	private final static Map<String, TypeSize> typeSizeMapping = new ImmutableMap.Builder<String, TypeSize>()
+			.put("Myself Only", TypeSize.INDUSTRY_0_10)
+			.put("1-10 employees", TypeSize.INDUSTRY_0_10)
+			.put("11-50 employees", TypeSize.INDUSTRY_11_49)
+			.put("51-200 employees", TypeSize.INDUSTRY_50_249)
+			.put("201-500 employees", TypeSize.INDUSTRY_250_499)
+			.put("501-1000 employees", TypeSize.INDUSTRY_500_PLUS)
+			.put("1001-5000 employees", TypeSize.INDUSTRY_500_PLUS)
+			.put("5001-10,000 employees", TypeSize.INDUSTRY_500_PLUS)
+			.put("10,001+ employees", TypeSize.INDUSTRY_500_PLUS).build();
+
+
+	public LinkedInCSVImport(String csvFilePath) {
+		this.csvFilePath = csvFilePath;
+	}
+
+	public void start() throws IOException {
+		final File file = new File(csvFilePath);
+		if (!file.canRead()) {
+			throw new IOException("Cannot read file " + csvFilePath);
+		}
+
+		new Thread() {
+			public void run() {
+				try {
+					parse(file);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			};
+		}.start();
+	}
+
+	private void parse(File file) throws IOException { 
+		CSVParser parser = CSVParser.parse(file, CSV_ENCODING, CSV_FORMAT);
+
+		Map<String, Map<String, String>> geocodignMap = new HashMap<>();
+		List<Map<String, String>> bulk = new LinkedList<>();
+
+		int i = 0;
+		for (CSVRecord r : parser) {
+			Map<String, String> map = r.toMap();
+			String address = map.get(FIELD_ADDRESS);
+			if (!StringUtils.isBlank(address)) {
+				geocodignMap.put(address, map);
+			} 
+			bulk.add(map);
+
+			if (++i % bulkSize == 0) {
+				if (geoLocator != null) {
+					geoLocator.geoLocate(geocodignMap);
+				}
+				geocodignMap.clear();
+
+				final int j = i;
+				buildBulk(bulk).execute(new ActionListener<BulkResponse>() {
+					@Override
+					public void onResponse(BulkResponse response) {
+						System.out.println("Successfully indexed companies bulk " + (j / bulkSize));
+					}
+					@Override
+					public void onFailure(Throwable e) {
+						e.printStackTrace();
+					}
+				});
+				companyRepo.flush();
+				bulk.clear();
+			}
+		}
+		buildBulk(bulk).get();
+	}		
+
+	private BulkRequestBuilder buildBulk(List<Map<String, String>> list) {
+		BulkRequestBuilder bulk = elasticClient.prepareBulk();
+
+		for (Map<String, String> record : list) {
+			Map<String, Object> source = new HashMap<>(record);
+			Company company = new Company();
+			BeanWrapper wrapper = new BeanWrapperImpl(company);
+			try {
+				wrapper.setPropertyValues(Utils.mapToPropertyValues(record), true, true);
+			} catch(Throwable e) {}
+
+			// Address and Headquarters
+			Address address = Utils.parseAddress(record.get(FIELD_ADDRESS));
+			address.setGeoLocation(record.get(FIELD_GEO_LOCATION));
+			company.setAddress(address);
+			source.put(FIELD_ADDRESS, mapper.map(address, HashMap.class));
+
+			Address headquarters = Utils.parseAddress(record.get(FIELD_HEADQUARTERS));
+			source.put(FIELD_HEADQUARTERS, mapper.map(headquarters, HashMap.class));
+
+			// Year founded
+			try {
+    			Integer yearFounded = Integer.valueOf((String)source.remove(FIELD_FOUNDED));
+    			company.setYearFounded(yearFounded);
+    			source.put("yearFounded", yearFounded);
+			} catch (NumberFormatException e) {}
+
+			// Industry
+			String industry = record.get(CSV_FIELD_INDUSTRY);
+			if (!StringUtils.isBlank(industry)) {
+				industry = industry.trim();
+				source.remove(CSV_FIELD_INDUSTRY);
+				source.put(FIELD_INDUSTRY, industry);
+				source.put(FIELD_INDUSTRY_ANALYZED, industry);
+				company.setIndustries(ImmutableList.of(industry));
+			}
+
+			// Specialties
+			List<String> specialtiesList = Utils.parseSpecialties(record.get(FIELD_SPECIALTIES));
+			String[] specialtiesArray = specialtiesList.toArray(new String[specialtiesList.size()]);
+			source.put(FIELD_SPECIALTIES, specialtiesArray);
+			source.put(FIELD_SPECIALTIES_ANALYZED, specialtiesArray);
+			company.setSpecialties(specialtiesList);
+
+			// Company size
+			String companySize = record.get("company_size");
+			TypeSize typeSize = typeSizeMapping.containsKey(companySize) ? typeSizeMapping.get(companySize) : TypeSize.OTHER;
+			company.setTypeSize(typeSize);
+			source.put("typeSize", typeSize.name());
+
+			try {
+				Company saved = companyRepo.save(company);
+				source.put("id", saved.getId());
+				bulk.add(elasticClient.prepareIndex(esIndexCompanies, esTypeCompany,
+						String.valueOf(saved.getId())).setSource(source));
+				if (!industryCache.contains(industry)) {
+					industryCache.add(industry);
+					bulk.add(elasticClient.prepareIndex(esIndexIndustries, esTypeIndustry,
+							String.valueOf(industry.toLowerCase().hashCode()))
+							.setSource(Utils.buildSuggestableSource(industry)));
+				}
+				if (specialtiesList != null) {
+					for (String s : specialtiesList) {
+						if (!specialtyCache.contains(s)) {
+    						bulk.add(elasticClient.prepareIndex(esIndexIndustries, esTypeSpecialty,
+    								String.valueOf(s.toLowerCase().hashCode()))
+    								.setSource(Utils.buildSuggestableSource(s)));
+    						specialtyCache.add(s);
+						}
+					}
+				}
+			} catch (Throwable e) {
+				e.printStackTrace();
+			}
+		}
+		return bulk;
+	}
+
+}

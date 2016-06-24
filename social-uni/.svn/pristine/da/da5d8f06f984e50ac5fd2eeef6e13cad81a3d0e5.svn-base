@@ -1,0 +1,223 @@
+package com.connectik.cloverlead.dto;
+
+import com.connectik.cloverlead.model.Chamber;
+import com.connectik.cloverlead.validation.ValidationGroups;
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
+import java.util.*;
+
+public class CompanyInput {
+
+    @Null(groups = ValidationGroups.Company.Create.class)
+    @NotNull(groups = ValidationGroups.Company.Update.class)
+    private Long id;
+
+    private String name;
+
+    private String website;
+
+    private String logo;
+
+    private String backgroundPhoto;
+
+    private String internalUrl;
+
+    private String fax;
+
+    private String phone;
+
+    private Integer employeesCount;
+
+    private Integer yearFounded;
+
+    private String description;
+
+    private AddressDTO address;
+
+    private String geoLocation;
+
+    private Chamber chamber;
+
+    private String chamberJoinDate;
+
+    private LinkedHashSet<String> photos = new LinkedHashSet<>();
+
+    private LinkedHashSet<String> videos = new LinkedHashSet<>();
+
+    private LinkedHashSet<String> industries = new LinkedHashSet<>();
+
+    private LinkedHashSet<String> sectors = new LinkedHashSet<>();
+
+    private LinkedHashSet<String> specialties = new LinkedHashSet<>();
+
+    private LinkedHashSet<String> interests = new LinkedHashSet<>();
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public String getLogo() {
+        return logo;
+    }
+
+    public void setLogo(String logo) {
+        this.logo = logo;
+    }
+
+    public String getBackgroundPhoto() {
+        return backgroundPhoto;
+    }
+
+    public void setBackgroundPhoto(String backgroundPhoto) {
+        this.backgroundPhoto = backgroundPhoto;
+    }
+
+    public String getInternalUrl() {
+        return internalUrl;
+    }
+
+    public void setInternalUrl(String internalUrl) {
+        this.internalUrl = internalUrl;
+    }
+
+    public String getFax() {
+        return fax;
+    }
+
+    public void setFax(String fax) {
+        this.fax = fax;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public Integer getEmployeesCount() {
+        return employeesCount;
+    }
+
+    public void setEmployeesCount(Integer employeesCount) {
+        this.employeesCount = employeesCount;
+    }
+
+    public Integer getYearFounded() {
+        return yearFounded;
+    }
+
+    public void setYearFounded(Integer yearFounded) {
+        this.yearFounded = yearFounded;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public AddressDTO getAddress() {
+        return address;
+    }
+
+    public void setAddress(AddressDTO address) {
+        this.address = address;
+    }
+
+    public String getGeoLocation() {
+        return geoLocation;
+    }
+
+    public void setGeoLocation(String geoLocation) {
+        this.geoLocation = geoLocation;
+    }
+
+    public Chamber getChamber() {
+        return chamber;
+    }
+
+    public void setChamber(Chamber chamber) {
+        this.chamber = chamber;
+    }
+
+    public String getChamberJoinDate() {
+        return chamberJoinDate;
+    }
+
+    public void setChamberJoinDate(String chamberJoinDate) {
+        this.chamberJoinDate = chamberJoinDate;
+    }
+
+    public LinkedHashSet<String> getVideos() {
+        return videos;
+    }
+
+    public void setVideos(LinkedHashSet<String> videos) {
+        this.videos = videos;
+    }
+
+    public LinkedHashSet<String> getIndustries() {
+        return industries;
+    }
+
+    public void setIndustries(LinkedHashSet<String> industries) {
+        this.industries = industries;
+    }
+
+    public LinkedHashSet<String> getSectors() {
+        return sectors;
+    }
+
+    public void setSectors(LinkedHashSet<String> sectors) {
+        this.sectors = sectors;
+    }
+
+    public LinkedHashSet<String> getInterests() {
+        return interests;
+    }
+
+    public void setInterests(LinkedHashSet<String> interests) {
+        this.interests = interests;
+    }
+
+    public LinkedHashSet<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(LinkedHashSet<String> specialties) {
+        this.specialties = specialties;
+    }
+
+    public LinkedHashSet<String> getPhotos() {
+        return photos;
+    }
+
+    public void setPhotos(LinkedHashSet<String> photos) {
+        this.photos = photos;
+    }
+}

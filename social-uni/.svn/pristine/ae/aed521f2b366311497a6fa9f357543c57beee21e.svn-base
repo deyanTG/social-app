@@ -1,0 +1,15 @@
+package com.connectik.cloverlead.model;
+
+public enum SearchableEntity {
+    COMPANY("company"), EXPERT("user"), OPPORTUNITY("opportunity");
+
+    private String elasticType;
+
+    private SearchableEntity(String type) {
+        this.elasticType = type;
+    }
+
+    public String getType() {
+        return elasticType;
+    }
+}

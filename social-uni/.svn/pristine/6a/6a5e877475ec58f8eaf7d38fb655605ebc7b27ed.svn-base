@@ -1,0 +1,5 @@
+package com.connectik.cloverlead.model;
+
+public enum AccountProvider {
+	LOCAL, LINKEDIN, GOOGLE
+}

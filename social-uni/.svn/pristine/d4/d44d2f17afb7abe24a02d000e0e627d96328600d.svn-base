@@ -1,0 +1,13 @@
+package com.connectik.cloverlead.dao;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.model.VerificationToken;
+
+public interface VerificationTokenRepository extends JpaRepository<VerificationToken, Long> {
+
+	VerificationToken findByToken(String token);
+
+	VerificationToken findByUser(User user);
+}

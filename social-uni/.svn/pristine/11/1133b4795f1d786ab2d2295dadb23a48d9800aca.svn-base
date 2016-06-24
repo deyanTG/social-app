@@ -1,0 +1,56 @@
+package com.connectik.cloverlead.service;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.SpringApplicationConfiguration;
+import org.testng.annotations.Test;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.dao.UserRepository;
+import com.connectik.cloverlead.model.User;
+
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
+
+@SpringApplicationConfiguration(Application.class)
+public class UserServiceTest extends ServiceTest {
+
+	@Autowired
+	private UserService userService;
+
+	@Autowired
+	private UserRepository userRepo;
+
+	@Test
+	public void create() {
+		User user = new User();
+		user.setFirstName("first");
+		user.setLastName("last");
+		user = userService.save(user);
+
+		userRepo.flush();
+
+		assertThat(userRepo.findOne(user.getId()), notNullValue());
+	}
+
+//	@Test
+//	public void update() {
+//		User user = new User();
+//		user.setFirstName("first");
+//		user.setLastName("last");
+//		user = userRepo.saveAndFlush(user);
+//
+//		User update = new User();
+//		update.setFirstName("FirstName");
+//		update.setLastName("LastName");
+//		user = userService.update(update);
+//
+//		userRepo.flush();
+//
+//		user = userRepo.findOne(user.getId());
+//		assertThat(user.getFirstName(), equalTo("FirstName"));
+//		assertThat(user.getLastName(), equalTo("LastName"));
+//	}
+
+}

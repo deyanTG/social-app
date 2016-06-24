@@ -1,0 +1,75 @@
+package com.connectik.cloverlead.controller;
+
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.service.CompanyService;
+import com.connectik.cloverlead.validation.ValidationGroups;
+import org.jsondoc.core.annotation.*;
+import org.jsondoc.core.pojo.ApiVerb;
+import org.jsondoc.core.pojo.ApiVisibility;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@Api(description = "company endpoints", name = "/companies")
+@RestController
+public class CompanyController {
+
+    @Autowired
+    private CompanyService companyService;
+
+    @ApiMethod(description = "get the company with the given id")
+    @RequestMapping(value = "/companies/{id}", method = RequestMethod.GET)
+    public Company get(@ApiPathParam(description = "id of company", name = "id") @PathVariable(value = "id") Long id) {
+        return companyService.get(id);
+    }
+
+    @ApiMethod(description = "find companies")
+    @RequestMapping(value = "/companies", method = RequestMethod.GET)
+    public Page<Company> find(@ApiQueryParam(name = "query", description = "search term", required = false)
+                              @RequestParam(name = "query", defaultValue = "", required = false) String query,
+                              @ApiQueryParam(name = "page", description = "page number", required = false, defaultvalue = "0")
+                              @RequestParam(name = "page", defaultValue = "0", required = false) int page,
+                              @ApiQueryParam(name = "page_size", description = "page size", required = false,
+                                      defaultvalue = Application.Constants.DEFAULT_PAGE_SIZE_STR)
+                              @RequestParam(name = "page_size", required = false,
+                                      defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return companyService.find(query, page, pageSize);
+    }
+
+    @ApiMethod(description = "create a company", verb = ApiVerb.POST, visibility = ApiVisibility.PUBLIC)
+    @RequestMapping(value = "/companies", method = RequestMethod.POST)
+    public Company save(@ApiBodyObject @RequestBody @Validated(ValidationGroups.Company.Create.class) Company company) {
+        return companyService.save(company);
+    }
+
+    @ApiMethod(description = "update a company", verb = ApiVerb.PUT, visibility = ApiVisibility.PUBLIC)
+    @RequestMapping(value = "/companies", method = RequestMethod.PUT)
+    public Company update(@ApiBodyObject @RequestBody @Validated(ValidationGroups.Company.Update.class) Company company) {
+        return companyService.update(company);
+    }
+
+    @ApiMethod(description = "delete a company", verb = ApiVerb.DELETE, visibility = ApiVisibility.PUBLIC)
+    @RequestMapping(value = "/companies/{id}", method = RequestMethod.DELETE)
+    public void delete(@ApiPathParam(description = "id of company", name = "id") @PathVariable(value = "id") Long id) {
+        companyService.delete(id);
+    }
+
+    @ApiMethod(description = "get a list of company users for a company with the given id")
+    @RequestMapping(value = "/companies/{id}/users", method = RequestMethod.GET)
+    public Page<User> getCompanies(@ApiPathParam(description = "id of company", name = "id")
+                                   @PathVariable(value = "id") Long id,
+                                   @ApiQueryParam(name = "page", description = "page number", required = false,
+                                           defaultvalue = "0")
+                                   @RequestParam(name = "page", defaultValue = "0", required = false) int page,
+                                   @ApiQueryParam(name = "page_size", description = "page size", required = false,
+                                           defaultvalue = Application.Constants.DEFAULT_PAGE_SIZE_STR)
+                                   @RequestParam(name = "page_size", required = false,
+                                           defaultValue = Application.Constants.DEFAULT_PAGE_SIZE_STR) int pageSize) {
+        return companyService.getUsers(id, page, pageSize);
+    }
+
+}

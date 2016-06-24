@@ -1,0 +1,351 @@
+package com.connectik.cloverlead.model;
+
+import com.connectik.cloverlead.validation.ValidationGroups;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import org.hibernate.annotations.Cascade;
+import org.hibernate.annotations.CascadeType;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import javax.persistence.*;
+import javax.validation.constraints.Null;
+import javax.validation.constraints.Size;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+@Entity(name = "company")
+@Table(name = "company")
+@EntityListeners(AuditingEntityListener.class)
+public class Company {
+
+	public static enum TypeSize {
+		INDUSTRY_0_10,
+		INDUSTRY_11_49,
+		INDUSTRY_50_249,
+		INDUSTRY_250_499,
+		INDUSTRY_500_PLUS,
+		OTHER
+	}
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Null(groups = ValidationGroups.Company.Create.class)
+    private Long id;
+
+    @JsonIgnore
+    @CreatedBy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
+    @JsonIgnore
+    @LastModifiedBy
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by")
+    private User updatedBy;
+
+    @CreatedDate
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "name")
+    @Size(min = 1, max = 300)
+    private String name;
+
+    @Column(name = "website")
+    //TODO valdiate
+    private String website;
+
+    @Column(name = "logo")
+    //TODO validate URL or Null
+    private String logo;
+
+    @Column(name = "background_photo")
+    //TODO validate URL or Null
+    private String backgroundPhoto;
+
+    @Column(name = "internal_url")
+    private String internalUrl;
+
+    @Column(name = "fax")
+    private String fax;
+
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "type_size")
+    @Enumerated(EnumType.STRING)
+    private TypeSize typeSize;
+
+    @Column(name = "year_founded")
+    private Integer yearFounded;
+
+    @Column(name = "description")
+    @Size(min = 0, max = 4096)
+    private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chamber_id")
+    private Chamber chamber;
+
+    @Column(name = "chamber_join_date")
+    private LocalDate chamberJoinDate;
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "company")
+    @OrderBy(value = "id asc")
+    private Set<Opportunity> opportunities;
+
+    @Cascade(CascadeType.DELETE)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_photo", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "photo")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> photos = new ArrayList<>();
+
+    @Cascade(CascadeType.DELETE)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_video", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "video")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> videos = new ArrayList<>();
+
+    @Cascade(CascadeType.DELETE)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_industry", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "industry")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> industries = new ArrayList<>();
+
+    @Cascade(CascadeType.DELETE)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_sector", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "sector")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> sectors = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_specialty", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "specialty")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> specialties = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "company_interest", joinColumns = @JoinColumn(name = "company_id"))
+    @Column(name = "interest")
+    @OrderColumn(name = "order_seq", nullable = false)
+    private List<String> interests = new ArrayList<>();
+
+    @Embedded
+    private Address address;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public User getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(User updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public String getLogo() {
+        return logo;
+    }
+
+    public void setLogo(String logo) {
+        this.logo = logo;
+    }
+
+    public String getBackgroundPhoto() {
+        return backgroundPhoto;
+    }
+
+    public void setBackgroundPhoto(String backgroundPhoto) {
+        this.backgroundPhoto = backgroundPhoto;
+    }
+
+    public String getInternalUrl() {
+        return internalUrl;
+    }
+
+    public void setInternalUrl(String internalUrl) {
+        this.internalUrl = internalUrl;
+    }
+
+    public String getFax() {
+        return fax;
+    }
+
+    public void setFax(String fax) {
+        this.fax = fax;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public Integer getYearFounded() {
+        return yearFounded;
+    }
+
+    public void setYearFounded(Integer yearFounded) {
+        this.yearFounded = yearFounded;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Chamber getChamber() {
+        return chamber;
+    }
+
+    public void setChamber(Chamber chamber) {
+        this.chamber = chamber;
+    }
+
+    public LocalDate getChamberJoinDate() {
+        return chamberJoinDate;
+    }
+
+    public void setChamberJoinDate(LocalDate chamberJoinDate) {
+        this.chamberJoinDate = chamberJoinDate;
+    }
+
+    public Set<Opportunity> getOpportunities() {
+        return opportunities;
+    }
+
+    public void setOpportunities(Set<Opportunity> opportunities) {
+        this.opportunities = opportunities;
+    }
+
+    public List<String> getPhotos() {
+        return photos;
+    }
+
+    public void setPhotos(List<String> photos) {
+        this.photos = photos;
+    }
+
+    public List<String> getVideos() {
+        return videos;
+    }
+
+    public void setVideos(List<String> videos) {
+        this.videos = videos;
+    }
+
+    public List<String> getIndustries() {
+        return industries;
+    }
+
+    public void setIndustries(List<String> industries) {
+        this.industries = industries;
+    }
+
+    public List<String> getSectors() {
+        return sectors;
+    }
+
+    public void setSectors(List<String> sectors) {
+        this.sectors = sectors;
+    }
+
+    public List<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(List<String> specialties) {
+        this.specialties = specialties;
+    }
+
+    public List<String> getInterests() {
+        return interests;
+    }
+
+    public void setInterests(List<String> interests) {
+        this.interests = interests;
+    }
+
+	public Address getAddress() {
+		return address;
+	}
+
+	public void setAddress(Address address) {
+		this.address = address;
+	}
+
+	public TypeSize getTypeSize() {
+		return typeSize;
+	}
+
+	public void setTypeSize(TypeSize typeSize) {
+		this.typeSize = typeSize;
+	}
+}

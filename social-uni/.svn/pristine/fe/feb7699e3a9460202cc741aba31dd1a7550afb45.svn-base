@@ -1,0 +1,11 @@
+package com.connectik.cloverlead.service;
+
+import org.springframework.boot.test.IntegrationTest;
+
+import com.connectik.cloverlead.CloverTest;
+
+@IntegrationTest
+public abstract class ServiceTest extends CloverTest{
+
+
+}

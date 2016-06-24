@@ -1,0 +1,21 @@
+package com.connectik.cloverlead.exception;
+
+import org.elasticsearch.ElasticsearchException;
+
+public class ESException extends ElasticsearchException {
+
+    private String request;
+
+    public ESException(Throwable cause, String request) {
+        super(cause);
+        this.request = request;
+    }
+
+    public String getRequest() {
+        return request;
+    }
+
+    public void setRequest(String request) {
+        this.request = request;
+    }
+}

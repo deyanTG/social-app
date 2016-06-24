@@ -1,0 +1,19 @@
+package com.connectik.cloverlead.dao;
+
+import com.connectik.cloverlead.model.Chamber;
+import com.connectik.cloverlead.model.Company;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface ChamberRepository extends JpaRepository<Chamber, Long> {
+    Page<Chamber> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    @Query(value = "SELECT c FROM company c INNER JOIN FETCH c.chamber WHERE c.chamber.id = :chamber_id",
+            countQuery = "SELECT COUNT(c.id) FROM company c WHERE c.chamber.id = :chamber_id")
+    Page<Company> getCompanies(@Param("chamber_id") Long id, Pageable pageable);
+
+
+}

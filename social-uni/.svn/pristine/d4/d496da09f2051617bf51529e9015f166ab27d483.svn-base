@@ -1,0 +1,66 @@
+package com.connectik.cloverlead.model;
+
+
+import javax.persistence.*;
+
+@Entity(name = "user_company")
+@Table(name = "user_company")
+public class UserCompany {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
+
+    @Column(name = "admin")
+    private boolean admin = false;
+
+    public UserCompany() {
+    }
+
+    public UserCompany(User user, Company company, boolean admin) {
+        this.user = user;
+        this.company = company;
+        this.admin = admin;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
+    }
+
+    public boolean isAdmin() {
+        return admin;
+    }
+
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
+    }
+}

@@ -1,0 +1,24 @@
+package com.connectik.cloverlead.dao;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.User;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+	@Query(value = "SELECT u FROM users u LEFT JOIN FETCH u.roles WHERE u.username = :username", countQuery = "SELECT u FROM users u WHERE u.username = :username")
+	User findOneByUsername(@Param("username") String username);
+
+	@Query(value = "SELECT uc.company FROM user_company uc WHERE uc.user.id = :user_id ")
+	Page<Company> getCompanies(@Param("user_id") Long id, Pageable pageable);
+
+	@Query("SELECT u FROM users u WHERE lower(firstName) like %:query% OR lower(lastName) like %:query%")
+	Page<User> find(@Param("query") String query, Pageable pageable);
+
+	
+}

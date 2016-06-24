@@ -1,0 +1,341 @@
+package com.connectik.cloverlead.model;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToOne;
+import javax.persistence.OrderColumn;
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
+
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+
+import com.connectik.cloverlead.validation.ValidationGroups;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+/**
+ * Created by Tan on 18-Apr-16. User model class
+ */
+@Entity(name = "users")
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(columnNames = { "username" }) )
+public class User {
+
+    public enum Role {
+        INTERNAL_ADMIN, INTERNAL_USER, COC_STAFF, COC_ADMIN, COMPANY_USER, ANONYMOUS;
+    }
+
+    public User() {
+    }
+
+    public User(Role role) {
+        this.role = role;
+    }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @NotNull(groups = ValidationGroups.User.Update.class)
+    @Null(groups = ValidationGroups.User.Create.class)
+    private Long id;
+
+    @CreatedDate
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "username")
+    private String username;
+
+    @Column(name = "password")
+    @JsonIgnore
+    private String password;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Role role;
+
+    @Column(name = "expert")
+    private Boolean expert = false;
+
+    @Column(name = "enabled")
+    private Boolean enabled = false;
+
+    @Column(name = "bio")
+    private String bio;
+
+    @Column(name = "title")
+    private String title;
+
+    @Column(name = "position")
+    private String position;
+
+    @Column(name = "organisation")
+    private String organisation;
+
+    @Column(name = "fax")
+    private String fax;
+
+    @Column(name = "avatar")
+    private String avatar;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_company", joinColumns = { @JoinColumn(name = "user_id") }, inverseJoinColumns = {
+            @JoinColumn(name = "company_id") })
+    private Company company;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_education", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "education")
+    @OrderColumn(name = "order_seq")
+    private List<String> education = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_phone_number", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "number")
+    @OrderColumn(name = "order_seq")
+    private List<String> phoneNumbers = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_professional_association", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "association")
+    @OrderColumn(name = "order_seq")
+    private List<String> professionalAssociations = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_specialty", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "specialty")
+    @OrderColumn(name = "order_seq")
+    private List<String> specialties = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_industry", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "industry")
+    @OrderColumn(name = "order_seq")
+    private List<String> industries = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_language", joinColumns = @JoinColumn(name = "user_id") )
+    @Column(name = "language")
+    @OrderColumn(name = "order_seq")
+    private List<String> languages = new ArrayList<>();
+
+    @Embedded
+    private Address address;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+    public Boolean getExpert() {
+        return expert;
+    }
+
+    public void setExpert(Boolean expert) {
+        this.expert = expert;
+    }
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
+
+    public String getOrganisation() {
+        return organisation;
+    }
+
+    public void setOrganisation(String organisation) {
+        this.organisation = organisation;
+    }
+
+    public String getFax() {
+        return fax;
+    }
+
+    public void setFax(String fax) {
+        this.fax = fax;
+    }
+
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
+    }
+
+    public List<String> getEducation() {
+        return education;
+    }
+
+    public void setEducation(List<String> education) {
+        this.education = education;
+    }
+
+    public List<String> getPhoneNumbers() {
+        return phoneNumbers;
+    }
+
+    public void setPhoneNumbers(List<String> phoneNumbers) {
+        this.phoneNumbers = phoneNumbers;
+    }
+
+    public List<String> getProfessionalAssociations() {
+        return professionalAssociations;
+    }
+
+    public void setProfessionalAssociations(List<String> professionalAssociations) {
+        this.professionalAssociations = professionalAssociations;
+    }
+
+    public List<String> getSpecialties() {
+        return specialties;
+    }
+
+    public void setSpecialties(List<String> specialties) {
+        this.specialties = specialties;
+    }
+
+    public List<String> getIndustries() {
+        return industries;
+    }
+
+    public void setIndustries(List<String> industries) {
+        this.industries = industries;
+    }
+
+    public List<String> getLanguages() {
+        return languages;
+    }
+
+    public void setLanguages(List<String> languages) {
+        this.languages = languages;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
+    }
+}

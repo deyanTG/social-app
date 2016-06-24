@@ -1,0 +1,382 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dto.CompanyOutput;
+import com.connectik.cloverlead.dto.EntityOutput;
+import com.connectik.cloverlead.dto.OpportunityOutput;
+import com.connectik.cloverlead.dto.UserOutput;
+import com.connectik.cloverlead.exception.ESException;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.Opportunity;
+import com.connectik.cloverlead.model.Opportunity.Type;
+import com.connectik.cloverlead.utils.UserUtils;
+import ma.glasnost.orika.MapperFacade;
+import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.connectik.cloverlead.dto.MatchOutput.MatchEntityOutput;
+import static com.connectik.cloverlead.service.MatchService.MatchQueryName.*;
+
+@Service
+public class MatchService {
+
+    @Value("${match.threshold:1.0}")
+    public float matchThreshold;
+
+    enum MatchQueryName {
+        //match companies
+        OFFER_OPPORTUNITY_SPECIALTY_TO_COMPANY_INTEREST,
+        REQUEST_OPPORTUNITY_SPECIALTY_TO_COMPANY_SPECIALTY,
+        COMPANY_INTEREST_TO_COMPANY_SPECIALTY,
+        COMPANY_SPECIALTY_TO_COMPANY_INTEREST,
+
+        //match opportunities
+        REQUEST_OPPORTUNITY_SPECIALTY_TO_OFFER_OPPORTUNITY_SPECIALTY,
+        OFFER_OPPORTUNITY_SPECIALTY_TO_REQUEST_OPPORTUNITY_SPECIALTY,
+        REQUEST_OPPORTUNITY_KEYWORD_TO_OFFER_OPPORTUNITY_KEYWORD,
+        OFFER_OPPORTUNITY_KEYWORD_TO_REQUEST_OPPORTUNITY_KEYWORD,
+
+        //match experts
+        REQUEST_OPPORTUNITY_SPECIALTY_TO_EXPERT_SPECIALTY
+
+    }
+
+    @Autowired
+    private Client esClient;
+
+    @Autowired
+    private OpportunityService opportunityService;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    @Autowired
+    private CompanyService companyService;
+
+    public Page<MatchEntityOutput<CompanyOutput>> matchCompanies(Long companyId, int page, int pageSize) {
+
+        Company company = companyService.get(companyId);
+
+        //fetch active opportunities specialties
+        Set<Opportunity> opportunities = opportunityService.findByCompany(companyId);
+        Set<String> offerOpportunitySpecialties = opportunities.stream()
+                .filter(op -> op.getType() == Type.OFFER)
+                .map(Opportunity::getSpecialties)
+                .flatMap(Collection::stream)
+                .filter(sp -> sp != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        Set<String> requestOpportunityInterests = opportunities.stream()
+                .filter(op -> op.getType() == Type.REQUEST)
+                .map(Opportunity::getSpecialties)
+                .flatMap(Collection::stream)
+                .filter(sp -> sp != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        //fetch active company specialties and interests
+        List<String> companySpecialties = company.getSpecialties().stream()
+                .filter(sp -> sp != null).map(String::toLowerCase).collect(Collectors.toList());
+        List<String> companyInterests = company.getInterests().stream()
+                .filter(sp -> sp != null).map(String::toLowerCase).collect(Collectors.toList());
+
+
+        if (requestOpportunityInterests.isEmpty() && offerOpportunitySpecialties.isEmpty()
+                && companySpecialties.isEmpty() && companyInterests.isEmpty()) {
+            //don't query es. Nothing to match against
+            return buildMatchPage(CompanyOutput.class, null, page, pageSize);
+        }
+
+        //build query statements
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        Set<TermQueryBuilder> termsQueryBuilders = new HashSet<>();
+        if (!requestOpportunityInterests.isEmpty()) {
+            query.should(QueryBuilders.termsQuery("specialties", requestOpportunityInterests)
+                    .queryName(REQUEST_OPPORTUNITY_SPECIALTY_TO_COMPANY_SPECIALTY.toString()));
+            for (String taxonomy : requestOpportunityInterests) {
+                termsQueryBuilders.add(QueryBuilders.termQuery("specialties", taxonomy));
+            }
+
+        }
+        if (!offerOpportunitySpecialties.isEmpty()) {
+            query.should(QueryBuilders.termsQuery("interests", offerOpportunitySpecialties)
+                    .queryName(OFFER_OPPORTUNITY_SPECIALTY_TO_COMPANY_INTEREST.toString()));
+            for (String taxonomy : offerOpportunitySpecialties) {
+                termsQueryBuilders.add(QueryBuilders.termQuery("interests", taxonomy));
+            }
+        }
+        if (!companyInterests.isEmpty()) {
+            query.should(QueryBuilders.termsQuery("specialties", companyInterests)
+                    .queryName(COMPANY_INTEREST_TO_COMPANY_SPECIALTY.toString()));
+            for (String taxonomy : companyInterests) {
+                termsQueryBuilders.add(QueryBuilders.termQuery("specialties", taxonomy));
+            }
+        }
+        if (!companySpecialties.isEmpty()) {
+            query.should(QueryBuilders.termsQuery("interests", companySpecialties)
+                    .queryName(COMPANY_SPECIALTY_TO_COMPANY_INTEREST.toString()));
+            for (String taxonomy : companySpecialties) {
+                termsQueryBuilders.add(QueryBuilders.termQuery("interests", taxonomy));
+            }
+        }
+        //must not return the company we match against
+        query.mustNot(QueryBuilders.termQuery("_id", companyId));
+
+        FunctionScoreQueryBuilder scoreQuery = QueryBuilders.functionScoreQuery(query);
+        for (TermQueryBuilder t : termsQueryBuilders) {
+            scoreQuery.add(t, ScoreFunctionBuilders.weightFactorFunction(1));
+        }
+        scoreQuery.scoreMode("sum");
+        scoreQuery.boostMode("replace");
+
+        //build query request
+        SearchRequestBuilder request = esClient.prepareSearch("companies")
+                .setTypes("company")
+                .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+                .setQuery(scoreQuery)
+                .addSort(SortBuilders.scoreSort().order(SortOrder.DESC))
+                .addSort(SortBuilders.fieldSort("_id").order(SortOrder.ASC))
+                .setMinScore(matchThreshold)
+                .setFrom(page * pageSize)
+                .setSize(pageSize);
+
+        SearchResponse searchResponse;
+        try {
+            searchResponse = request.get();
+        } catch (ElasticsearchException e) {
+            throw new ESException(e, request.toString());
+        }
+
+        //build response
+        return buildMatchPage(CompanyOutput.class, searchResponse.getHits(), page, pageSize);
+    }
+
+
+    public Page<MatchEntityOutput<OpportunityOutput>> matchOpportunities(Long companyId, int page, int pageSize) {
+
+        //fetch active opportunities specialties and keywords
+        Set<Opportunity> opportunities = opportunityService.findByCompany(companyId);
+        Set<Long> opportunityIds = opportunities.stream().map(Opportunity::getId).collect(Collectors.toSet());
+        if (opportunities == null || opportunities.isEmpty()) {
+            //don't query es if you don't have opportunities
+            return buildMatchPage(OpportunityOutput.class, null, page, pageSize);
+        }
+        Set<Opportunity> offerOpportunities = opportunities.stream()
+                .filter(op -> op.getType() == Type.OFFER).collect(Collectors.toSet());
+        Set<Opportunity> requestOpportunities = opportunities.stream()
+                .filter(op -> op.getType() == Type.REQUEST).collect(Collectors.toSet());
+
+        Set<String> offerSpecialties = offerOpportunities.stream()
+                .map(Opportunity::getSpecialties)
+                .flatMap(Collection::stream)
+                .filter(sp -> sp != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        Set<String> offerKeywords = offerOpportunities.stream()
+                .map(Opportunity::getKeywords)
+                .flatMap(Collection::stream)
+                .filter(k -> k != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        Set<String> requestSpecialties = requestOpportunities.stream()
+                .map(Opportunity::getSpecialties)
+                .flatMap(Collection::stream)
+                .filter(sp -> sp != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+        Set<String> requestKeywords = requestOpportunities.stream()
+                .map(Opportunity::getKeywords)
+                .flatMap(Collection::stream)
+                .filter(k -> k != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        if(offerSpecialties.isEmpty() && offerKeywords.isEmpty() && requestSpecialties.isEmpty() && requestKeywords.isEmpty()){
+            return buildMatchPage(OpportunityOutput.class, null, page, pageSize);
+        }
+
+        //build query statements
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+
+        Set<TermQueryBuilder> termQueryBuilders = new HashSet<>();
+
+        if (!offerSpecialties.isEmpty() || !offerKeywords.isEmpty()) {
+            BoolQueryBuilder offerToRequestQuery = QueryBuilders.boolQuery();
+            offerToRequestQuery.must(QueryBuilders.matchQuery("type", Opportunity.Type.REQUEST));
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            if (!offerSpecialties.isEmpty()) {
+                boolQueryBuilder.should(QueryBuilders.termsQuery("specialties", offerSpecialties)
+                        .queryName(OFFER_OPPORTUNITY_SPECIALTY_TO_REQUEST_OPPORTUNITY_SPECIALTY.toString()));
+                for (String taxonomy : offerSpecialties) {
+                    termQueryBuilders.add(QueryBuilders.termQuery("specialties", taxonomy));
+                }
+            }
+            if (!offerKeywords.isEmpty()) {
+                boolQueryBuilder.should(QueryBuilders.termsQuery("keywords", offerKeywords)
+                        .queryName(OFFER_OPPORTUNITY_KEYWORD_TO_REQUEST_OPPORTUNITY_KEYWORD.toString()));
+                for (String taxonomy : offerKeywords) {
+                    termQueryBuilders.add(QueryBuilders.termQuery("keywords", taxonomy));
+                }
+            }
+            offerToRequestQuery.must(boolQueryBuilder);
+
+            query.should(offerToRequestQuery);
+        }
+
+        if (!requestSpecialties.isEmpty() || !requestKeywords.isEmpty()) {
+            BoolQueryBuilder requestToOfferQuery = QueryBuilders.boolQuery();
+            requestToOfferQuery.must(QueryBuilders.matchQuery("type", Opportunity.Type.OFFER));
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            if (!requestSpecialties.isEmpty()) {
+                boolQueryBuilder.should(QueryBuilders.termsQuery("specialties", requestSpecialties)
+                        .queryName(REQUEST_OPPORTUNITY_SPECIALTY_TO_OFFER_OPPORTUNITY_SPECIALTY.toString()));
+                for (String taxonomy : requestSpecialties) {
+                    termQueryBuilders.add(QueryBuilders.termQuery("specialties", taxonomy));
+                }
+            }
+            if (!requestKeywords.isEmpty()) {
+                boolQueryBuilder.should(QueryBuilders.termsQuery("keywords", requestKeywords)
+                        .queryName(REQUEST_OPPORTUNITY_KEYWORD_TO_OFFER_OPPORTUNITY_KEYWORD.toString()));
+                for (String taxonomy : requestKeywords) {
+                    termQueryBuilders.add(QueryBuilders.termQuery("keywords", taxonomy));
+                }
+            }
+            requestToOfferQuery.must(boolQueryBuilder);
+
+            query.should(requestToOfferQuery);
+        }
+
+        //don't return given company opportunities
+        query.mustNot(QueryBuilders.termsQuery("_id", opportunityIds));
+
+        FunctionScoreQueryBuilder scoreQuery = QueryBuilders.functionScoreQuery(query);
+        for (TermQueryBuilder t : termQueryBuilders) {
+            scoreQuery.add(t, ScoreFunctionBuilders.weightFactorFunction(1));
+        }
+        scoreQuery.scoreMode("sum");
+        scoreQuery.boostMode("replace");
+
+        //build query request
+        SearchRequestBuilder request = esClient.prepareSearch("companies")
+                .setTypes("opportunity")
+                .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+                .addSort(SortBuilders.scoreSort().order(SortOrder.DESC))
+                .addSort(SortBuilders.fieldSort("_id").order(SortOrder.ASC))
+                .setMinScore(matchThreshold)
+                .setFrom(page * pageSize)
+                .setSize(pageSize)
+                .setQuery(scoreQuery);
+
+        SearchResponse searchResponse;
+        try {
+            searchResponse = request.get();
+        } catch (ElasticsearchException e) {
+            throw new ESException(e, request.toString());
+        }
+
+        //build response
+        return buildMatchPage(OpportunityOutput.class, searchResponse.getHits(), page, pageSize);
+    }
+
+    public Page<MatchEntityOutput<UserOutput>> matchExperts(Long companyId, int page, int pageSize) {
+
+        //get active request opportunity specialties
+        Set<Opportunity> opportunities = opportunityService.findByCompany(companyId);
+        if (opportunities == null || opportunities.isEmpty()) {
+            return buildMatchPage(UserOutput.class, null, page, pageSize);
+        }
+        Set<String> specialties = opportunities.stream()
+                .map(Opportunity::getSpecialties)
+                .flatMap(Collection::stream)
+                .filter(sp -> sp != null)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        if (specialties.isEmpty()) {
+            //don't query es
+            return buildMatchPage(UserOutput.class, null, page, pageSize);
+        }
+
+        //build query
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        query.should(QueryBuilders.termsQuery("specialties", specialties)
+                .queryName(REQUEST_OPPORTUNITY_SPECIALTY_TO_EXPERT_SPECIALTY.toString()));
+
+        query.mustNot(QueryBuilders.termQuery("_id", UserUtils.getCurrentUserId()));
+
+        FunctionScoreQueryBuilder scoreQuery = QueryBuilders.functionScoreQuery(query);
+        for (String specialty : specialties) {
+            scoreQuery.add(QueryBuilders.termQuery("specialties", specialty),
+                    ScoreFunctionBuilders.weightFactorFunction(1));
+        }
+
+        scoreQuery.scoreMode("sum");
+        scoreQuery.boostMode("replace");
+
+        //build query request
+        SearchRequestBuilder request = esClient.prepareSearch("companies")
+                .setTypes("user")
+                .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+                .setFrom(page * pageSize)
+                .setSize(pageSize)
+                .addSort(SortBuilders.scoreSort().order(SortOrder.DESC))
+                .addSort(SortBuilders.fieldSort("_id").order(SortOrder.ASC))
+                .setMinScore(matchThreshold)
+                .setQuery(scoreQuery);
+
+        SearchResponse searchResponse;
+        try {
+            searchResponse = request.get();
+        } catch (ElasticsearchException e) {
+            throw new ESException(e, request.toString());
+        }
+
+        // build response
+        return buildMatchPage(UserOutput.class, searchResponse.getHits(), page, pageSize);
+    }
+
+    private <T extends EntityOutput> Page<MatchEntityOutput<T>> buildMatchPage(Class<T> clazz, SearchHits searchHits, int page, int pageSize) {
+
+        List<MatchEntityOutput<T>> content = new ArrayList<>();
+        long totalHits = 0;
+        if (searchHits != null) {
+            for (SearchHit hit : searchHits) {
+                MatchEntityOutput<T> matchOutput = new MatchEntityOutput<>();
+                T entityOutput = mapper.map(hit.getSource(), clazz);
+                entityOutput.setId(Long.parseLong(hit.getId()));
+
+                matchOutput.setEntity(entityOutput);
+                matchOutput.setScore(hit.getScore());
+                matchOutput.setReasons(hit.getMatchedQueries());
+                content.add(matchOutput);
+            }
+            totalHits = searchHits.getTotalHits();
+        }
+
+        Pageable pageable = new PageRequest(page, pageSize);
+        return new PageImpl<>(content, pageable, totalHits);
+    }
+
+
+}

@@ -1,0 +1,183 @@
+package com.connectik.cloverlead.extimport;
+
+import java.beans.PropertyDescriptor;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.beans.PropertyValue;
+import org.springframework.beans.PropertyValues;
+
+import com.connectik.cloverlead.model.Address;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+
+public class Utils {
+	
+	private final static Set<String> STOPWORDS = ImmutableSet.of("and", "&", ",");
+
+	public static Map<String, ?> buildSuggestableSource(String term) {
+		String[] suggestInput = Arrays.asList(term.split(" +")).stream()
+				.map(s -> s.trim().replaceAll("\\W", ""))
+				.filter(s -> !STOPWORDS.contains(s))
+				.collect(Collectors.toList()).toArray(new String[0]);
+		
+		String suggestOutput = term;
+		return ImmutableMap.of(
+				"name", term,
+				"suggest", ImmutableMap.of(
+						"input", suggestInput,
+						"output", suggestOutput));
+	}
+
+	public static Address parseAddress (String input) {
+		Address address = new Address();
+		if (StringUtils.isEmpty(input)) {
+			return address;
+		}
+
+		JSONObject jsonObj;
+		try {
+			jsonObj = new JSONObject(input.replace("=>", ":"));
+		} catch (JSONException e) {
+			return address;
+		}
+		try {
+			address.setStreet2(jsonObj.getString("street2"));
+		} catch (JSONException e) {}
+		try {
+			address.setStreet1(jsonObj.getString("street1"));
+		} catch (JSONException e) {}
+		try {
+			address.setCity(jsonObj.getString("city"));
+		} catch (JSONException e) {}
+		try {
+			address.setState(jsonObj.getString("state"));
+		} catch (JSONException e) {}
+		try {
+			address.setZip(jsonObj.getString("zip"));
+		} catch (JSONException e) {}
+		try {
+			address.setCountry(jsonObj.getString("country"));
+		} catch (JSONException e) {}
+
+		return address;
+	}
+	
+	public static List<String> parseSpecialties (String input) {
+		List<String> specialties = new LinkedList<>();
+		if (StringUtils.isEmpty(input)) {
+			return specialties;
+		}
+		input = input.replace("--- '", "").replace("'\n", "");
+		
+		try {
+			JsonArray array = new JsonParser().parse(input).getAsJsonArray();
+			fillSpecialties(array, specialties, false);
+		} catch (IllegalStateException | JsonSyntaxException e) {
+			return specialties;
+		}
+		return specialties;
+	}
+
+	public static void fillSpecialties(JsonArray array, Collection<String> specialties, boolean stripId) {
+		if (array == null) return;
+
+		for (JsonElement element : array) {
+			String text = element.getAsString();
+			if (stripId) {
+				String[] split = text.split(" ", 2);
+				text = split.length > 1 ? split[1] : text;
+			}
+			if (!StringUtils.isBlank(text)) {
+				specialties.add(text.trim());
+			}
+		}
+	}
+	
+	public static PropertyValues mapToPropertyValues(Map<String, String> source) {
+		return new MapPropertyValues(source);
+	}
+	
+	
+	public static class MapPropertyValues implements PropertyValues{
+		private Map<String, PropertyValue> map = new HashMap<>();
+		
+		public MapPropertyValues(Map<String, String> source) {
+			for (Entry<String, String> entry : source.entrySet()) {
+				map.put(entry.getKey(), new PropertyValue(entry.getKey(), entry.getValue()));
+			}
+		}
+		
+		@Override
+		public boolean isEmpty() {
+			return map.isEmpty();
+		}
+		
+		@Override
+		public PropertyValue[] getPropertyValues() {
+			return map.values().toArray(new PropertyValue[0]);
+		}
+		
+		@Override
+		public PropertyValue getPropertyValue(String propertyName) {
+			return map.get(propertyName);
+		}
+		
+		@Override
+		public boolean contains(String propertyName) {
+			return map.containsKey(propertyName);
+		}
+		
+		@Override
+		public PropertyValues changesSince(PropertyValues old) {
+			return this;
+		}
+	}
+
+	public static Map<String, Object> toMap(Object object, Set<String> ignoreFields) {
+		ignoreFields.add("class");
+		BeanWrapper wrapper = new BeanWrapperImpl(object);
+		PropertyDescriptor[] propertyDescriptors = wrapper.getPropertyDescriptors();
+		Map<String, Object> map = new HashMap<>();
+		for (PropertyDescriptor pd : propertyDescriptors) {
+			Object value = wrapper.getPropertyValue(pd.getName());
+			if (ignoreFields.contains(pd.getName()) || value == null) {
+				continue;
+			}
+			if (pd.getPropertyType().isEnum()) {
+				value = ((Enum) value).name();
+			}
+			
+			map.put(pd.getName(), value);
+		}
+
+		return map;
+	}
+	
+	public static String getAsString(JsonObject object, String key) {
+		JsonElement element = object.get(key);
+		return element != null ? element.getAsString() : null;
+	}
+
+	public static Integer getAsInt(JsonObject object, String key) {
+		JsonElement element = object.get(key);
+		return element != null ? element.getAsInt() : null;
+	}
+}

@@ -1,0 +1,249 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.Application;
+import com.connectik.cloverlead.dto.AddressDTO;
+import com.connectik.cloverlead.dto.Gazetteer;
+import com.connectik.cloverlead.dto.SearchInput;
+import com.connectik.cloverlead.model.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder.Type;
+import org.elasticsearch.index.query.NestedQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.rest.RestStatus;
+import org.elasticsearch.search.SearchHits;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class SearchService {
+
+    @Autowired
+    private Client esClient;
+
+    @Value("${es.index.data}")
+    private String dataIndex;
+
+    @Value("${es.index.gazetteers}")
+    private String gazetteerIndex;
+
+    @Autowired
+    private FavouriteSearchService favouriteSearchService;
+
+    @Autowired
+    private CompanyService companyService;
+
+    @Autowired
+    private OpportunityService opportunityService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @SuppressWarnings("unchecked")
+    public <T> Page<T> searchEntities(SearchableEntity entityType, SearchInput searchInput) {
+        Map<Long, Float> scores = new HashMap<>();
+        Pageable page = new PageRequest(searchInput.getPage(), searchInput.getPageSize());
+
+        //@formatter:off
+        SearchRequestBuilder search = esClient.prepareSearch(dataIndex)
+                .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+                .setFrom(searchInput.getPage() * searchInput.getPageSize())
+                .setSize(searchInput.getPageSize())
+                .setFetchSource(false)
+                .setTypes(entityType.getType())
+                .setQuery(searchQueryBuilder(entityType, searchInput));
+        //@formatter:on
+        SearchResponse response = search.execute().actionGet();
+
+        Assert.state(RestStatus.OK == response.status());
+
+        SearchHits docs = response.getHits();
+        docs.forEach(doc -> scores.put(Long.parseLong(doc.getId()), doc.getScore()));
+        switch (entityType) {
+            case COMPANY:
+                List<Company> companies = companyService.fetchAdditionalInfo(scores.keySet());
+                companies.sort((c1, c2) -> -1 * scores.get(c1.getId()).compareTo(scores.get(c2.getId())));
+                return (Page<T>) new PageImpl<>(companies, page, docs.getTotalHits());
+            case OPPORTUNITY:
+                List<Opportunity> opportunities = opportunityService.findAll(scores.keySet());
+                opportunities.sort((c1, c2) -> -1 * scores.get(c1.getId()).compareTo(scores.get(c2.getId())));
+                return (Page<T>) new PageImpl<>(opportunities, page, docs.getTotalHits());
+            case EXPERT:
+                List<User> experts = userService.find(scores.keySet());
+                experts.sort((c1, c2) -> -1 * scores.get(c1.getId()).compareTo(scores.get(c2.getId())));
+                return (Page<T>) new PageImpl<>(experts, page, docs.getTotalHits());
+            default:
+                throw new RuntimeException("Unsupported search type");
+        }
+    }
+
+    public List<Gazetteer> searchGazetteers(String type, String prefix) {
+        QueryBuilder query = StringUtils.isBlank(prefix) ? QueryBuilders.matchAllQuery()
+                : QueryBuilders.matchQuery("name", prefix) // allows too much odd results
+                // .fuzzyTranspositions(true).fuzziness(Fuzziness.AUTO)
+                .type(Type.PHRASE_PREFIX);
+
+        //@formatter:off
+        SearchRequestBuilder search = esClient.prepareSearch(gazetteerIndex)
+                .setSearchType(SearchType.DFS_QUERY_THEN_FETCH)
+                .setSize(Application.Constants.MAXIMUM_GAZETTEER_RESULTS)
+                .setQuery(query);
+        //@formatter:on
+
+        if (type != null) {
+            search.setTypes(type);
+        }
+        SearchResponse response = search.execute().actionGet();
+        Assert.state(RestStatus.OK == response.status());
+        SearchHits docs = response.getHits();
+        List<Gazetteer> output = new ArrayList<>();
+        docs.forEach(doc -> output.add(new Gazetteer((String) doc.getSource().get("name"), doc.getType())));
+        return output;
+    }
+
+    public <T> Page<T> searchWithFavourite(Long id, int page, int pageSize) {
+        FavouriteSearch search = favouriteSearchService.getForCurrentUser(id);
+        try {
+            SearchInput input = objectMapper.readValue(search.getParams(), SearchInput.class);
+            input.setPage(page);
+            input.setPageSize(pageSize);
+            return searchEntities(search.getType(), input);
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot deserialize favourite search");
+        }
+    }
+
+    private QueryBuilder searchQueryBuilder(SearchableEntity entityType, SearchInput input) {
+        // building the main query...
+        BoolQueryBuilder theQuery = QueryBuilders.boolQuery();
+        ArrayList<String> queryFields = new ArrayList<>();
+
+        //address filter
+        NestedQueryBuilder addressNestedQuery = null;
+        AddressDTO address = input.getAddress();
+        if (address != null) {
+            BoolQueryBuilder nestedBoolQuery = QueryBuilders.boolQuery();
+            if (!StringUtils.isBlank(address.getCity())) {
+                nestedBoolQuery.must(QueryBuilders.matchQuery("address.city", address.getCity()));
+            } else if (!StringUtils.isBlank(address.getState())) {
+                nestedBoolQuery.must(QueryBuilders.matchQuery("address.state", address.getState()));
+            } else if (!StringUtils.isBlank(address.getCountry())) {
+                nestedBoolQuery.must(QueryBuilders.matchQuery("address.country", address.getCountry()));
+            }
+            if (nestedBoolQuery.hasClauses()) {
+                addressNestedQuery = QueryBuilders.nestedQuery("address", nestedBoolQuery);
+            }
+        }
+
+        //specialties filter
+        BoolQueryBuilder specialtiesQuery = QueryBuilders.boolQuery();
+        if (input.getSpecialties() != null && !input.getSpecialties().isEmpty()) {
+            input.getSpecialties().stream().forEach(s -> specialtiesQuery.should(QueryBuilders.matchPhraseQuery("specialties_analyzed", s)));
+        }
+
+        //industries filter
+        BoolQueryBuilder industryQuery = QueryBuilders.boolQuery();
+        if (input.getIndustries() != null && !input.getIndustries().isEmpty()) {
+            input.getIndustries().stream().forEach(i -> industryQuery.should(QueryBuilders.matchPhraseQuery("industries_analyzed", i)));
+        }
+
+        //for the given type set the query fields and add the corresponding filters
+        switch (entityType) {
+            case COMPANY:
+                queryFields.add("name");
+                queryFields.add("description");
+                queryFields.add("website");
+                queryFields.add("industries_analyzed");
+                queryFields.add("specialties_analyzed");
+
+                if (addressNestedQuery != null) {
+                    theQuery.filter(addressNestedQuery);
+                }
+                if (specialtiesQuery.hasClauses()) {
+                    theQuery.filter(specialtiesQuery);
+                }
+                if (industryQuery.hasClauses()) {
+                    theQuery.filter(industryQuery);
+                }
+                break;
+            case OPPORTUNITY:
+                queryFields.add("name");
+                queryFields.add("description");
+                queryFields.add("website");
+                queryFields.add("specialties_analyzed");
+                queryFields.add("keywords_analyzed");
+
+                if (addressNestedQuery != null) {
+                    theQuery.filter(addressNestedQuery);
+                }
+                if (specialtiesQuery.hasClauses()) {
+                    theQuery.filter(specialtiesQuery);
+                }
+                break;
+            case EXPERT:
+                queryFields.add("firstName");
+                queryFields.add("lastName");
+                queryFields.add("bio");
+                queryFields.add("industries_analyzed");
+                queryFields.add("specialties_analyzed");
+
+                if (addressNestedQuery != null) {
+                    theQuery.filter(addressNestedQuery);
+                }
+                if (specialtiesQuery.hasClauses()) {
+                    theQuery.filter(specialtiesQuery);
+                }
+                if (industryQuery.hasClauses()) {
+                    theQuery.filter(industryQuery);
+                }
+                break;
+            default:
+                throw new RuntimeException("Unsupported search type");
+        }
+
+
+        if (!StringUtils.isBlank(input.getSearchQuery())) {
+            //multi match query given the query fields
+            theQuery.should(QueryBuilders.multiMatchQuery(input.getSearchQuery(),
+                    queryFields.toArray(new String[queryFields.size()])));
+
+            //nested address query
+            BoolQueryBuilder nestedBoolQuery = QueryBuilders.boolQuery();
+            nestedBoolQuery.should(QueryBuilders.matchQuery("address.city", input.getSearchQuery()));
+            nestedBoolQuery.should(QueryBuilders.matchQuery("address.state", input.getSearchQuery()));
+            nestedBoolQuery.should(QueryBuilders.matchQuery("address.country", input.getSearchQuery()));
+            theQuery.should(QueryBuilders.nestedQuery("address", nestedBoolQuery));
+        } else {
+            if (!StringUtils.isBlank(input.getName())) {
+                theQuery.must(QueryBuilders.matchPhraseQuery("name", input.getName()));
+            }
+            if (!StringUtils.isBlank(input.getDescription())) {
+                theQuery.must(QueryBuilders.matchPhraseQuery("description", input.getDescription()));
+            }
+        }
+
+        return theQuery;
+    }
+
+}

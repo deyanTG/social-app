@@ -1,0 +1,203 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dao.CompanyRepository;
+import com.connectik.cloverlead.dao.UserCompanyRepository;
+import com.connectik.cloverlead.dto.CompanyInput;
+import com.connectik.cloverlead.es.ElasticIndexService;
+import com.connectik.cloverlead.es.GeoLocationService;
+import com.connectik.cloverlead.exception.ItemNotFoundException;
+import com.connectik.cloverlead.model.Address;
+import com.connectik.cloverlead.model.AuditRecord;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.model.UserCompany;
+import com.connectik.cloverlead.utils.UserUtils;
+import com.google.maps.PendingResult.Callback;
+import com.google.maps.model.GeocodingResult;
+import com.google.maps.model.LatLng;
+import ma.glasnost.orika.MapperFacade;
+import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.index.IndexResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class CompanyService {
+    @Autowired
+    private CompanyRepository companyRepository;
+
+    @Autowired
+    private UserCompanyRepository userCompanyRepository;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private ElasticIndexService elastic;
+
+    @Autowired
+    private MapperFacade mapper;
+
+    @Autowired
+    private GeoLocationService geoService;
+
+    private final static long GEO_LOCATION_RESULT_WAIT_MILLIS = 60000;
+
+    public boolean exists(Long id){
+        return companyRepository.exists(id);
+    }
+
+    public Company get(Long id) {
+        auditService.auditGetRequest(AuditRecord.RequestType.COMPANY_GET, id);
+        Company company = companyRepository.get(id);
+        if (company == null) {
+            throw new ItemNotFoundException(Company.class, id);
+        }
+        return company;
+    }
+
+    public Page<Company> list(String query, int page, int pageSize) {
+        auditService.auditListRequest(AuditRecord.RequestType.COMPANY_LIST, query);
+        Page<Company> companies;
+        if (StringUtils.isEmpty(query)) {
+            companies = companyRepository.findAll(new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        } else {
+            companies = companyRepository.findByNameContainingIgnoreCase(query.trim().toUpperCase(),
+                    new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        }
+        return fetchAdditionalInfo(companies);
+    }
+
+    public Company save(CompanyInput companyInput) {
+        Company company = mapper.map(companyInput, Company.class);
+
+        Address address = company.getAddress();
+        boolean updateGeoLocation = address != null && StringUtils.isEmpty(address.getGeoLocation());
+        //TODO check if user already has a company
+        companyRepository.save(company);
+        userCompanyRepository.save(new UserCompany(UserUtils.getCurrentUser(), company, true));
+        updateExternalInfo(company, updateGeoLocation);
+
+        return company;
+    }
+
+    public void delete(Long id) {
+        companyRepository.delete(id);
+
+    }
+
+    public Company update(CompanyInput companyInput) {
+        Company company = companyRepository.get(companyInput.getId());
+        if (company == null) {
+            throw new ItemNotFoundException(Company.class, companyInput.getId());
+        }
+
+        Address inputAddress = mapper.map(companyInput.getAddress(), Address.class);
+
+        boolean updateGeoLocation = inputAddress != null
+                && !inputAddress.equals(company.getAddress())
+                && StringUtils.isEmpty(inputAddress.getGeoLocation());
+        
+        mapper.map(companyInput, company);
+        updateExternalInfo(company, updateGeoLocation);
+
+        return companyRepository.save(company);
+    }
+
+    public Page<User> getUsers(Long id, int page, int pageSize) {
+        return companyRepository.getUsers(id, new PageRequest(page, pageSize,
+                Sort.Direction.ASC, "user.lastName", "user.firstName", "user.id"));
+    }
+
+    public Page<Company> fetchAdditionalInfo(Page<Company> companies) {
+        if (!companies.getContent().isEmpty()) {
+            List<Long> companyIds = companies.getContent().stream().map(Company::getId).collect(Collectors.toList());
+            companyRepository.fetchAdditionalInfo(companyIds);
+        }
+        return companies;
+    }
+
+    public List<Company> fetchAdditionalInfo(Set<Long> ids) {
+        if (!ids.isEmpty()) {
+            return companyRepository.fetchAdditionalInfo(ids);
+        }
+        return new ArrayList<>();
+    }
+
+
+    private void updateExternalInfo(Company company, boolean updateGeoLocation) {
+        LinkedBlockingDeque<String> queue = null;
+
+        if (updateGeoLocation) {
+            queue = new LinkedBlockingDeque<>(1);
+            geoService.getGeoLocation(company.getAddress().toString(), new LocationUpdatingGeocodingCallback(company, queue));
+        }
+
+        elastic.index(company, new LocationUpdatingESCallback(company, queue));
+    }
+
+    private class LocationUpdatingESCallback implements ActionListener<IndexResponse> {
+        private LinkedBlockingDeque<String> queue;
+        private Company company;
+
+        public LocationUpdatingESCallback(Company company, LinkedBlockingDeque<String> queue) {
+            this.queue = queue;
+            this.company = company;
+        }
+
+        @Override
+        public void onResponse(IndexResponse response) {
+            response.getId();
+            try {
+                String geoLoc = queue != null ? queue.poll(GEO_LOCATION_RESULT_WAIT_MILLIS, TimeUnit.MILLISECONDS) : null;
+                if (geoLoc != null) {
+                    elastic.index(company, null);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+        }
+    }
+
+    private class LocationUpdatingGeocodingCallback implements Callback<GeocodingResult[]> {
+        private LinkedBlockingDeque<String> queue;
+        private Company company;
+
+        public LocationUpdatingGeocodingCallback(Company company, LinkedBlockingDeque<String> queue) {
+            this.queue = queue;
+            this.company = company;
+        }
+
+        @Override
+        public void onResult(GeocodingResult[] result) {
+            if (result != null && result.length > 0) {
+                LatLng location = result[0].geometry.location;
+                String geoLoc = location.lat + "," + location.lng;
+                company.getAddress().setGeoLocation(geoLoc);
+                companyRepository.save(company);
+                queue.offer(geoLoc);
+            }
+        }
+
+        @Override
+        public void onFailure(Throwable e) {
+        }
+    }
+}

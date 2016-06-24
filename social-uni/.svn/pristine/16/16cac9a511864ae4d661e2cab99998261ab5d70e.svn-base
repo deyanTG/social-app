@@ -1,0 +1,70 @@
+package com.connectik.cloverlead.dto;
+
+import org.springframework.data.domain.Page;
+
+public class MatchOutput {
+
+    private Page<MatchEntityOutput<CompanyOutput>> companies;
+
+    private Page<MatchEntityOutput<OpportunityOutput>> opportunities;
+
+    private Page<MatchEntityOutput<UserOutput>> experts;
+
+
+    public static class MatchEntityOutput<T> {
+
+        private float score;
+
+        private String[] reasons;
+
+        private T entity;
+
+        public T getEntity() {
+            return entity;
+        }
+
+        public void setEntity(T entity) {
+            this.entity = entity;
+        }
+
+        public float getScore() {
+            return score;
+        }
+
+        public void setScore(float score) {
+            this.score = score;
+        }
+
+        public String[] getReasons() {
+            return reasons;
+        }
+
+        public void setReasons(String[] reasons) {
+            this.reasons = reasons;
+        }
+    }
+
+    public Page<MatchEntityOutput<CompanyOutput>> getCompanies() {
+        return companies;
+    }
+
+    public void setCompanies(Page<MatchEntityOutput<CompanyOutput>> companies) {
+        this.companies = companies;
+    }
+
+    public Page<MatchEntityOutput<OpportunityOutput>> getOpportunities() {
+        return opportunities;
+    }
+
+    public void setOpportunities(Page<MatchEntityOutput<OpportunityOutput>> opportunities) {
+        this.opportunities = opportunities;
+    }
+
+    public Page<MatchEntityOutput<UserOutput>> getExperts() {
+        return experts;
+    }
+
+    public void setExperts(Page<MatchEntityOutput<UserOutput>> experts) {
+        this.experts = experts;
+    }
+}

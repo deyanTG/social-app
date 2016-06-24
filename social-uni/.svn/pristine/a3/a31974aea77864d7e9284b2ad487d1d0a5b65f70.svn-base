@@ -1,0 +1,38 @@
+package com.connectik.cloverlead.conf;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+
+import com.google.maps.GeoApiContext;
+
+@Configuration
+public class AppConfig {
+
+	@Autowired
+	private Environment env;
+
+	@Bean
+	public Client esClient() throws UnknownHostException {
+		String host = env.getProperty("es.host", "localhost");
+		int port = env.getProperty("es.port", Integer.class, 9300);
+
+		return TransportClient.builder().build().addTransportAddress(
+				new InetSocketTransportAddress(InetAddress.getByName(host), port));
+	}
+
+	@Bean
+	public GeoApiContext geoApiContext() {
+		String key = env.getProperty("google.server.geocoder.key", "AIzaSyAE766dD05b-dUaK7ApSNGRBXe_Fd2TsNk");
+		int queryLimit = env.getProperty("google.server.geocoder.query.limit", Integer.class, 10);
+		
+		return new GeoApiContext().setApiKey(key).setQueryRateLimit(queryLimit);
+	}
+}

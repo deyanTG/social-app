@@ -1,0 +1,105 @@
+package com.connectik.cloverlead.extimport;
+
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.util.Map;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+public class GeoLocator {
+
+	private static final String MQ_JSON_LNG = "lng";
+
+	private static final String MQ_JSON_LAT = "lat";
+
+	private static final String MQ_JSON_LAT_LNG = "latLng";
+
+	private static final String MQ_JSON_LOCATIONS = "locations";
+
+	private static final String MQ_JSON_PROVIDED_LOCATION = "providedLocation";
+
+	private static final String MQ_URL_PARAM_LOCATION = "location";
+
+	private static final String MQ_URL_PARAM_MAX_RESULTS = "maxResults";
+
+	private static final String MQ_URL_PARAM_API_KEY = "key";
+
+	private static final String MQ_ENDPOINT_BATCH = "/batch";
+	
+
+	private static final String FIELD_GEO_LOCATION = "geoLocation";
+	
+
+	@Value("${mapquestapi.key}")
+	private String mapquestApiKey;
+
+	@Value("${mapquestapi.url:http://www.mapquestapi.com/geocoding/v1}")
+	private String mapquestApiUrl;
+	
+	
+	public void geoLocate(Map<String, Map<String, String>> geocodignMap)  {
+		URIBuilder uriBuilder;
+		try {
+			uriBuilder = new URIBuilder(mapquestApiUrl + MQ_ENDPOINT_BATCH);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+		uriBuilder.addParameter(MQ_URL_PARAM_API_KEY, mapquestApiKey).addParameter(MQ_URL_PARAM_MAX_RESULTS, "1");
+		for (String address : geocodignMap.keySet()) {
+			uriBuilder.addParameter(MQ_URL_PARAM_LOCATION, address);
+		}
+		System.err.println("REQUEST: " + uriBuilder);
+
+		CloseableHttpClient client = HttpClientBuilder.create().build();
+		JSONArray results;
+		try {
+			HttpGet request = new HttpGet(uriBuilder.build());
+			CloseableHttpResponse response = client.execute(request);
+
+			StringBuilder jsonBuilder = new StringBuilder();
+			byte[] buffer = new byte[4096];
+			InputStream stream = response.getEntity().getContent();
+			int count;
+			while((count = stream.read(buffer)) > 0) {
+				jsonBuilder.append(new String(buffer, 0, count));
+			}
+
+			String jsonString = jsonBuilder.toString();
+			System.err.println("RESPONSE: " + jsonString);
+
+			JSONObject object = new JSONObject(jsonString);
+			results = object.getJSONArray("results");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return;
+		}
+
+		if (results == null) {
+			return;
+		}
+
+		for (Object e : results) {
+			try {
+				JSONObject r = (JSONObject) e;
+    			String key = r.getJSONObject(MQ_JSON_PROVIDED_LOCATION).getString(MQ_URL_PARAM_LOCATION);
+    			JSONObject latLng = r.getJSONArray(MQ_JSON_LOCATIONS).getJSONObject(0).getJSONObject(MQ_JSON_LAT_LNG);
+
+    			Map<String, String> map = geocodignMap.get(key);
+    			if (map != null) {
+    				map.put(FIELD_GEO_LOCATION, latLng.getDouble(MQ_JSON_LAT) + "," + latLng.getDouble(MQ_JSON_LNG));
+    			}
+			} catch (Exception ex) {
+				System.err.println("Failed to read location from " + e.toString());
+			}
+		}
+	}
+
+}

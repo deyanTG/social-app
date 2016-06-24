@@ -1,0 +1,46 @@
+package com.connectik.cloverlead.dto;
+
+import com.connectik.cloverlead.model.SearchableEntity;
+
+public class FavouriteSearchInput {
+
+    private SearchableEntity type;
+
+    private String name;
+
+    private String description;
+
+    private SearchInput searchInput;
+
+    public SearchableEntity getType() {
+        return type;
+    }
+
+    public void setType(SearchableEntity type) {
+        this.type = type;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public SearchInput getSearchInput() {
+        return searchInput;
+    }
+
+    public void setSearchInput(SearchInput searchInput) {
+        this.searchInput = searchInput;
+    }
+}

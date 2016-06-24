@@ -1,0 +1,28 @@
+package com.connectik.cloverlead;
+
+import com.connectik.cloverlead.model.User;
+import com.connectik.cloverlead.service.UserDetailsServiceImpl;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+public class Utils {
+
+    public static User getCurrentUser() {
+        return ((UserDetailsServiceImpl.Account) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal()).getUser();
+    }
+
+    public static String getCurrentUserAgent() {
+        return ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest().getHeader(
+                "user-agent");
+    }
+
+    public static String getCurrentUserIPAddress() {
+        return ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest().getRemoteAddr();
+    }
+
+    public static String getCurrentUserSessionId() {
+        return RequestContextHolder.currentRequestAttributes().getSessionId();
+    }
+}

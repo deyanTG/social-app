@@ -1,0 +1,67 @@
+package com.connectik.cloverlead.service;
+
+import com.connectik.cloverlead.dao.CompanyRepository;
+import com.connectik.cloverlead.exception.ItemNotFoundException;
+import com.connectik.cloverlead.model.AuditRecord;
+import com.connectik.cloverlead.model.Company;
+import com.connectik.cloverlead.model.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+@Service
+@Transactional
+public class CompanyService {
+
+    @Autowired
+    private CompanyRepository companyRepository;
+
+    @Autowired
+    private AuditService auditService;
+
+    public Company get(Long id) {
+        auditService.auditRequest(AuditRecord.RequestType.COMPANY_GET, id.toString());
+        Company company = companyRepository.findOne(id);
+        if (company == null) {
+            throw new ItemNotFoundException(Company.class, id);
+        }
+        return company;
+    }
+
+    public Page<Company> find(String query, int page, int pageSize) {
+        auditService.auditRequest(AuditRecord.RequestType.COMPANY_FIND, query);
+        if (StringUtils.isEmpty(query)) {
+            return companyRepository.findAll(new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        } else {
+            return companyRepository.findByNameContainingIgnoreCase(query.trim().toUpperCase(),
+                    new PageRequest(page, pageSize, Sort.Direction.ASC, "name", "id"));
+        }
+    }
+
+    public Company save(Company company) {
+        companyRepository.save(company);
+        companyRepository.addUserToCompany(1L, company.getId(), true); //TODO get user from spring security
+        return company;
+    }
+
+    public void delete(Long id) {
+        companyRepository.delete(id);
+
+    }
+
+    public Company update(Company company) {
+        get(company.getId());
+        return companyRepository.save(company);
+    }
+
+    public Page<User> getUsers(Long id, int page, int pageSize) {
+        return companyRepository.getUsers(id, new PageRequest(page, pageSize,
+                Sort.Direction.ASC, "user.lastName", "user.firstName", "user.id"));
+    }
+
+
+}

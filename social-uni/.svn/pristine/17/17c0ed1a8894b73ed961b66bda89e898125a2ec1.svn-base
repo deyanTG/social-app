@@ -1,0 +1,11 @@
+package com.connectik.cloverlead.dao;
+
+import com.connectik.cloverlead.model.AuditRecord;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.scheduling.annotation.Async;
+
+public interface AuditRecordRepository extends JpaRepository<AuditRecord, Long> {
+
+    @Async
+    <S extends AuditRecord> S save(S entity);
+}

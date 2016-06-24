@@ -1,0 +1,54 @@
+package com.connectik.cloverlead;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.transport.TransportAddress;
+import org.jsondoc.spring.boot.starter.EnableJSONDoc;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+/**
+ * Created by Tan on 18-Apr-16. Spring Boot Launcher
+ */
+@SpringBootApplication
+@EnableAsync
+@EnableJSONDoc
+@EnableTransactionManagement
+public class Application {
+
+    public interface Constants {
+        int DEFAULT_PAGE_SIZE = 10;
+        String DEFAULT_PAGE_SIZE_STR = "10";
+        String HTTP_STATUS_CODE = "javax.servlet.error.status_code";
+        int REMEMBER_ME_IN_SECONDS = 86400;
+        String REMEMBER_ME_PARAMETER_AND_COOKIE_NAME = "remember-me";
+        int MAXIMUM_SESSIONS_ALLOWED = 1;
+        int VERIFICATION_TOKEN_EXPIRATION = 60 * 24;
+        int PASSWORD_RESET_TOKEN_EXPIRATION = 60 * 24;
+        int MAXIMUM_ES_RESULTS = 1000;
+        int MAXIMUM_GAZETTEER_RESULTS = 100;
+		String DEFAULT_LINKEDIN_CSV_FILE_PATH = "/root/linkedin/CompanyInfoLatest.csv";
+		String DEFAULT_OPPORTUNITIES_JSON_FILE_PATH = "/root/linkedin/opps.csv";
+		String DEFAULT_EXPERT_JSON_FILE_PATH = "/root/linkedin/experts.json";
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+
+    @Bean(destroyMethod = "close")
+    public Client esClient(@Value("${es.host}") String esHost, @Value("${es.port.native:9300}") int esPort)
+            throws UnknownHostException {
+        TransportAddress address = new InetSocketTransportAddress(InetAddress.getByName(esHost), esPort);
+        Client esClient = TransportClient.builder().build().addTransportAddress(address);
+        return esClient;
+    }
+}

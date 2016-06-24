@@ -1,0 +1,99 @@
+package com.connectik.cloverlead.model;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.validation.constraints.NotNull;
+
+import com.connectik.cloverlead.Application;
+
+@Entity(name = "verification_token")
+@Table(name = "verification_token")
+public class VerificationToken {
+
+	@Id
+	@GeneratedValue
+	private Long id;
+
+	@Column(name = "token")
+	private String token;
+
+	@OneToOne(targetEntity = User.class, fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+	@JoinColumn(nullable = false, name = "user_id")
+	private User user;
+
+	@NotNull
+	@Column(name = "expiry_date", nullable = false)
+	private LocalDateTime expiryDate;
+
+	@Column(name = "verified")
+	private Boolean verified = false;
+
+	public VerificationToken() {
+		super();
+	}
+
+	public VerificationToken(String token, User user) {
+		super();
+		this.token = token;
+		this.user = user;
+		this.expiryDate = calculateExpiryDate(Application.Constants.VERIFICATION_TOKEN_EXPIRATION);
+		this.verified = false;
+	}
+
+	private static LocalDateTime calculateExpiryDate(int expiryTimeInMinutes) {
+		Duration duration = Duration.ofMinutes(expiryTimeInMinutes);
+		LocalDateTime time = LocalDateTime.now();
+		return time.plus(duration);
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getToken() {
+		return token;
+	}
+
+	public void setToken(String token) {
+		this.token = token;
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
+	}
+
+	public LocalDateTime getExpiryDate() {
+		return expiryDate;
+	}
+
+	public void setExpiryDate(LocalDateTime expiryDate) {
+		this.expiryDate = expiryDate;
+	}
+
+	public Boolean getVerified() {
+		return verified;
+	}
+
+	public void setVerified(Boolean verified) {
+		this.verified = verified;
+	}
+
+}

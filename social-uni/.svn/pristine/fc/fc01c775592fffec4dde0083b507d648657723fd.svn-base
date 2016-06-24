@@ -1,0 +1,105 @@
+package com.connectik.cloverlead.controller;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.protocol.HttpContext;
+import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.boot.test.WebIntegrationTest;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+import com.connectik.cloverlead.CloverTest;
+
+@WebIntegrationTest({"server.host:localhost", "server.port:8080", "auth.username:test", "auth.password:test"})
+public abstract class ControllerTest extends CloverTest implements FactoryBean<RestTemplate>, InitializingBean {
+
+	protected RestTemplate restTemplate;
+	
+	private HttpHost host;
+	
+	protected URI endpoint(String resource) {
+		try {
+			URIBuilder builder = new URIBuilder(host.toURI());
+			builder.setPath("/" + resource);
+			return builder.build();
+		} catch (NumberFormatException | URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+
+	private class BasicAuthRequestFactory extends HttpComponentsClientHttpRequestFactory {
+		private HttpHost host;
+		private String username;
+		private String password;
+
+	    public BasicAuthRequestFactory(HttpHost host, String username, String password) {
+	        super();
+	        this.host = host;
+	        this.username = username;
+	        this.password = password;
+	    }
+
+	    protected HttpContext createHttpContext(HttpMethod httpMethod, URI uri) {
+	        return createHttpContext();
+	    }
+
+	    private HttpContext createHttpContext() {
+	    	HttpClientContext context = new HttpClientContext();
+
+	    	CredentialsProvider cp = new BasicCredentialsProvider();
+	    	context.setCredentialsProvider(cp);
+	    	cp.setCredentials(
+			        new AuthScope(host, AuthScope.ANY_REALM, AuthScope.ANY_SCHEME),
+			        new UsernamePasswordCredentials(username, password));
+
+	    	return context;
+	    }
+	}
+
+	@Override
+	public boolean isSingleton() {
+		return true;
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		return RestTemplate.class;
+	}
+
+	@Override
+	public RestTemplate getObject() throws Exception {
+		return restTemplate;
+	}
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		String username = env.getProperty("auth.username", "test");
+		String password = env.getProperty("auth.password", "test");
+		restTemplate = template(username, password);
+
+		String host = env.getProperty("server.host", "localhost");
+		int port = Integer.parseInt(env.getProperty("server.port", "8080"));
+		this.host = new HttpHost(host, port);
+	}
+
+	protected RestTemplate template(String username, String password) {
+		int port = Integer.parseInt(env.getProperty("server.port"));
+
+		HttpHost host = new HttpHost("localhost", port);
+		RestTemplate restTemplate = new RestTemplate(
+				new BasicAuthRequestFactory(host, username, password));
+
+		return restTemplate;
+	}
+}

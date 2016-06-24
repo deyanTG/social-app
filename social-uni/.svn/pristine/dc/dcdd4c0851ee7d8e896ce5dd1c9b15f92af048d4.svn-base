@@ -1,0 +1,36 @@
+package com.connectik.cloverlead.conf;
+
+import java.util.Properties;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Configuration
+public class WebConfig {
+
+	@Bean
+	public ObjectMapper objectMapper() {
+		return new ObjectMapper();
+	}
+
+	@Bean(name = "mailSender")
+	public MailSender mailSender() {
+		JavaMailSenderImpl sender = new JavaMailSenderImpl();
+		sender.setHost("smtp.gmail.com");
+		sender.setPort(587);
+		//TODO : PLEASE PROVIDE VALID USERNAME AND PASSWORD HERE
+		sender.setUsername("");
+		sender.setPassword("");
+		Properties p = new Properties();
+		p.put("mail.transport.protocol", "smtp");
+		p.put("mail.smtp.auth", true);
+		p.put("mail.smtp.starttls.enable", true);
+		p.put("mail.smtp.quitwait", false);
+		sender.setJavaMailProperties(p);
+		return sender;
+	}
+}
